@@ -2,7 +2,7 @@
    Strategie: App-Shell im Cache (offline nutzbar), Navigation "network-first"
    damit Updates ankommen, statische Dateien "cache-first".
    Cross-Origin (z. B. api.anthropic.com) und Nicht-GET werden nie angefasst. */
-const CACHE = "kona64-v1";
+const CACHE = "kona64-v2";
 const ASSETS = [
   "./",
   "./index.html",

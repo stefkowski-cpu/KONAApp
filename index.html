@@ -355,6 +355,30 @@
     background:#fff; color:var(--ink); cursor:pointer; min-height:44px;
   }
   .btn-primary{background:var(--accent); color:#fff; border-color:var(--accent);}
+  /* Vergleich 1 kWh vs 1 L */
+  .cmp-btn{width:100%; margin-top:8px; border:1px solid var(--border); background:var(--accent-soft);
+    color:var(--accent-d); font-size:13px; font-weight:600; border-radius:11px; padding:9px 10px;
+    cursor:pointer; -webkit-tap-highlight-color:transparent;}
+  .cmp-btn:active{background:#d5ebee;}
+  .cmp-table{width:100%; border-collapse:collapse; margin-top:6px; font-size:12.5px;}
+  .cmp-table th, .cmp-table td{padding:6px 4px; text-align:right; white-space:nowrap;}
+  .cmp-table th:first-child, .cmp-table td:first-child{text-align:left; color:var(--muted); font-weight:500;}
+  .cmp-table thead th{font-size:11px; color:var(--muted); font-weight:600; border-bottom:1px solid var(--border);}
+  .cmp-table tbody td{border-bottom:1px solid var(--track);}
+  .cmp-table .val{font-weight:600; color:var(--ink);}
+  .cmp-table .grp td{padding:8px 4px 3px; font-size:10.5px; letter-spacing:.04em; text-transform:uppercase;
+    color:var(--muted); border-bottom:none;}
+  .cmp-table tr.hero td{border-bottom:none;}
+  .cmp-table tr.hero .val, .cmp-table tr.hero td:first-child{font-weight:700; color:var(--ink);}
+  .cmp-d{font-weight:600;}
+  .cmp-d.save{color:var(--accent-d);}
+  .cmp-d.more{color:var(--warn);}
+  .cmp-d.muted{color:var(--muted); font-weight:500;}
+  .cmp-plain{margin:12px 0 0; padding:10px 12px; background:var(--accent-soft); border-radius:11px;
+    font-size:12.5px; color:var(--ink); line-height:1.45;}
+  .cmp-plain b{color:var(--accent-d);}
+  .cmp-share{margin:10px 2px 0; font-size:11px; color:var(--muted); line-height:1.4;}
+  .cmp-foot{margin:10px 2px 0; font-size:10.5px; color:var(--muted); line-height:1.4;}
 </style>
 </head>
 <body>
@@ -504,20 +528,7 @@
       <div class="chip" data-price="individuell"><span class="chip-label">individ.</span><input class="chip-input" id="priceCustom" inputmode="decimal" value="0,25" aria-label="Individueller Preis pro kWh"></div>
     </div>
     <div class="save-note" id="saveNote">ggü. Benziner spart ca. 10,60 €</div>
-    <div class="km-cost">
-      <div class="kmc t-eur" role="button" tabindex="0" aria-label="Benzinpreis ändern">
-        <span class="kmc-label">Preis / km</span>
-        <span class="kmc-val" id="costPerKm">0,09 €</span>
-        <span class="kmc-diff save" id="diffPerKm">−0,08 € ggü. Benz.</span>
-        <span class="kmc-base">bei <span class="kmc-base-val">2,10</span> €/l <span class="pen">&#9998;</span></span>
-      </div>
-      <div class="kmc t-eur" role="button" tabindex="0" aria-label="Benzinpreis ändern">
-        <span class="kmc-label">Preis / 100 km</span>
-        <span class="kmc-val" id="costPer100Km">9,00 €</span>
-        <span class="kmc-diff save" id="diffPer100Km">−8,00 € ggü. Benz.</span>
-        <span class="kmc-base">bei <span class="kmc-base-val">2,10</span> €/l <span class="pen">&#9998;</span></span>
-      </div>
-    </div>
+    <button class="cmp-btn" id="cmpOpen" type="button">&#9878;&#65038; 1 kWh &#8596; 1 L vergleichen</button>
   </div>
 
   <div class="footer-note">Reichweite = Schätzwert je nach Verbrauch</div>
@@ -540,6 +551,10 @@
       <div class="grp-title">Benzinvergleich</div>
       <div class="field"><label for="setBenzin">Benzinpreis</label><input id="setBenzin" inputmode="decimal"><span class="unit">€/l</span></div>
       <div class="field"><label for="setBenzinV">Benziner-Verbrauch</label><input id="setBenzinV" inputmode="decimal"><span class="unit">l/100 km</span></div>
+      <div class="field"><label for="setTank">Tankvolumen</label><input id="setTank" inputmode="decimal"><span class="unit">l</span></div>
+      <div class="field"><label for="setCo2Benzin">CO&#8322; Benzin</label><input id="setCo2Benzin" inputmode="decimal"><span class="unit">g/l</span></div>
+      <div class="field"><label for="setCo2Strom">CO&#8322; Strom</label><input id="setCo2Strom" inputmode="decimal"><span class="unit">g/kWh</span></div>
+      <p class="m-sub" style="margin:2px 2px 0;">CO&#8322;-Strom = dein Ladestrom. Netzmix ~380, reiner PV-Strom ~0 g/kWh.</p>
 
       <div class="grp-title">Preise für Ladung</div>
       <div class="field"><label for="setNetz">Netz</label><input id="setNetz" inputmode="decimal"><span class="unit">€/kWh</span></div>
@@ -615,6 +630,19 @@
     </div>
   </div>
 
+  <!-- VERGLEICH 1 kWh vs 1 L -->
+  <div class="overlay cmp-overlay" id="cmpOverlay">
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="1 kWh gegen 1 Liter">
+      <div class="sheet-grip"></div>
+      <div class="sheet-head">
+        <div><h2>1 kWh vs. 1 Liter Benzin</h2><p class="m-sub" id="cmpSub">&nbsp;</p></div>
+        <button class="sheet-close" id="cmpClose" aria-label="Schließen">&times;</button>
+      </div>
+      <div id="cmpBody"></div>
+      <p class="cmp-foot">&#42; Werte je Einheit vergleichen unterschiedliche Gr&ouml;&szlig;en &ndash; ma&szlig;geblich ist die Zeile &bdquo;je 100&nbsp;km&ldquo;.</p>
+    </div>
+  </div>
+
   <!-- VERBRAUCH AUS KONA-REICHWEITE -->
   <div class="overlay benz-overlay" id="konaOverlay">
     <div class="sheet" role="dialog" aria-modal="true" aria-label="Verbrauch aus Kona">
@@ -686,6 +714,9 @@
     maxDc: 75,
     benzinpreis: 2.10,
     benzinerverbrauch: 8.0,
+    co2Strom: 380,     // g CO2 je kWh (dt. Netzmix; PV ~0)
+    co2Benzin: 2370,   // g CO2 je Liter Benzin
+    tankL: 51,         // Tankvolumen Benziner (BMW 218i Active Tourer, F45)
     consumption: { sparsam:13, normal:15, autobahn:19, winter:20 },
     prices: { netz:0.30, pv100:0.08, pv50:0.19, unterwegs:0.59 },
     chargers: [
@@ -761,6 +792,9 @@
     if(isNum(s.maxDc)) d.maxDc = s.maxDc;
     if(isNum(s.benzinpreis)) d.benzinpreis = s.benzinpreis;
     if(isNum(s.benzinerverbrauch)) d.benzinerverbrauch = s.benzinerverbrauch;
+    if(isNum(s.co2Strom)) d.co2Strom = s.co2Strom;
+    if(isNum(s.co2Benzin)) d.co2Benzin = s.co2Benzin;
+    if(isNum(s.tankL)) d.tankL = s.tankL;
     ["sparsam","normal","autobahn","winter"].forEach(function(k){
       if(s.consumption && isNum(s.consumption[k])) d.consumption[k] = s.consumption[k];
     });
@@ -1236,17 +1270,6 @@
       $("saveNote").textContent = "ggü. Benziner teurer um ca. " + f_eur(-ersparnis) + " €";
     }
 
-    // Fahrkosten pro km / 100 km (unabhängig von SoC/Ziel) + Differenz zum Benziner
-    var evPer100 = price * cons;          // €/100 km E-Auto
-    var evPerKm  = evPer100 / 100;        // €/km E-Auto
-    var icePerKm = icePer100 / 100;       // €/km Benziner
-    $("costPerKm").textContent    = f_eur(evPerKm) + " €";
-    $("costPer100Km").textContent = f_eur(evPer100) + " €";
-    setDiff($("diffPerKm"),  evPerKm  - icePerKm);   // negativ = günstiger
-    setDiff($("diffPer100Km"), evPer100 - icePer100);
-    var benzTxt = f_eur(settings.benzinpreis);
-    document.querySelectorAll(".kmc-base-val").forEach(function(el){ el.textContent = benzTxt; });
-
     save();
   }
 
@@ -1343,11 +1366,68 @@
   $("benzClose").addEventListener("click", closeBenzEdit);
   benzOverlay.addEventListener("click", function(e){ if(e.target === benzOverlay) closeBenzEdit(); });
   $("benzInput").addEventListener("keydown", function(e){ if(e.key === "Enter") applyBenzEdit(); });
-  document.querySelectorAll(".kmc").forEach(function(c){
-    c.addEventListener("click", openBenzEdit);
-    c.addEventListener("keydown", function(e){ if(e.key === "Enter" || e.key === " "){ e.preventDefault(); openBenzEdit(); } });
-  });
   $("saveNote").addEventListener("click", openBenzEdit);
+
+  // ---- Vergleich 1 kWh vs. 1 Liter ----
+  var cmpOverlay = $("cmpOverlay");
+  function buildCmp(){
+    var price = currentPrice();            // €/kWh
+    var cons  = currentConsumption();      // kWh/100 km
+    var bp = settings.benzinpreis;         // €/l
+    var bv = settings.benzinerverbrauch;   // l/100 km
+    var cap = settings.capacity;           // kWh
+    var tank = settings.tankL;             // l
+    var cS = settings.co2Strom;            // g/kWh
+    var cB = settings.co2Benzin;           // g/l
+
+    function e(v){ return isFinite(v) ? f_eur(v) + " €" : "–"; }
+    function km(v){ return (isFinite(v) && v > 0) ? f_km(v) + " km" : "–"; }
+    function g(v){ return isFinite(v) ? fmt(Math.round(v),0,0) + " g" : "–"; }
+    function kg(v){ return isFinite(v) ? fmt(v,1,1) + " kg" : "–"; }
+    function pct(v){ return isFinite(v) ? fmt(v,1,1) + " %" : "–"; }
+    function d(txt, cls){ return '<span class="cmp-d ' + cls + '">' + txt + '</span>'; }
+    function row(l,a,b,diff){ return '<tr><td>'+l+'</td><td class="val">'+a+'</td><td class="val">'+b+'</td><td>'+diff+'</td></tr>'; }
+    function hero(l,a,b,diff){ return '<tr class="hero"><td>'+l+'</td><td class="val">'+a+'</td><td class="val">'+b+'</td><td>'+diff+'</td></tr>'; }
+
+    var rw1 = cons > 0 ? 100/cons : NaN;    // km je kWh
+    var rwL = bv > 0 ? 100/bv : NaN;        // km je Liter
+    var evEur = cons*price, iceEur = bv*bp;         // €/100 km
+    var evKg = cons*cS/1000, iceKg = bv*cB/1000;    // kg/100 km
+
+    var rwDiff = (isFinite(rwL) && isFinite(rw1))
+      ? d((rwL>=rw1?"+":"−") + f_km(Math.abs(rwL-rw1)) + " km*","muted") : d("–","muted");
+
+    $("cmpSub").textContent = "Strom " + f_eur(price) + " €/kWh · " + f_cons(cons) + " kWh/100 km  ·  Benzin "
+      + f_eur(bp) + " €/l · " + f_cons(bv) + " l/100 km";
+
+    var table =
+        '<table class="cmp-table"><thead><tr><th></th><th>1 kWh</th><th>1 L</th><th>Differenz</th></tr></thead><tbody>'
+      + '<tr class="grp"><td colspan="4">je Einheit</td></tr>'
+      + row("Preis", e(price), e(bp), d("+"+f_eur(bp-price)+" €*","muted"))
+      + row("Reichweite", km(rw1), km(rwL), rwDiff)
+      + row("CO&#8322;", g(cS), g(cB), d("+"+fmt(Math.round(cB-cS),0,0)+" g*","muted"))
+      + '<tr class="grp"><td colspan="4">je 100 km</td></tr>'
+      + hero("Kosten", e(evEur), e(iceEur), d("−"+f_eur(iceEur-evEur)+" €","save"))
+      + hero("CO&#8322;", kg(evKg), kg(iceKg), d("−"+fmt(iceKg-evKg,1,1)+" kg","save"))
+      + '</tbody></table>';
+
+    var kWhForL = price > 0 ? bp/price : NaN;
+    var kmForL  = (isFinite(kWhForL) && cons > 0) ? kWhForL*100/cons : NaN;
+    var plain = (isFinite(kWhForL) && isFinite(kmForL))
+      ? '<p class="cmp-plain">Für den Preis von <b>1 L Benzin</b> ('+f_eur(bp)+' €) lädst du <b>'+f_kwh(kWhForL)+' kWh</b> → <b>'+f_km(kmForL)+' km</b> elektrisch (statt '+km(rwL)+' mit dem Liter).</p>'
+      : '';
+
+    var pctBatt = cap > 0 ? 100/cap : NaN;
+    var pctTank = tank > 0 ? 100/tank : NaN;
+    var share = '<p class="cmp-share">1 kWh = '+pct(pctBatt)+' von '+f_cons(cap)+' kWh Akku  ·  1 L = '+pct(pctTank)+' von '+f_cons(tank)+' l Tank (BMW 218i Active Tourer)</p>';
+
+    $("cmpBody").innerHTML = table + plain + share;
+  }
+  function openCmp(){ buildCmp(); cmpOverlay.classList.add("open"); }
+  function closeCmp(){ cmpOverlay.classList.remove("open"); }
+  $("cmpOpen").addEventListener("click", openCmp);
+  $("cmpClose").addEventListener("click", closeCmp);
+  cmpOverlay.addEventListener("click", function(e){ if(e.target === cmpOverlay) closeCmp(); });
 
   // ---- Verbrauch aus Kona-Reichweite (manuell oder per Screenshot-OCR) ----
   var konaOverlay = $("konaOverlay");
@@ -1726,6 +1806,9 @@
     setMaxDc:    { get:function(){return settings.maxDc;}, set:function(v){settings.maxDc=v;}, min:0.1, dec:1 },
     setBenzin:   { get:function(){return settings.benzinpreis;}, set:function(v){settings.benzinpreis=v;}, min:0.01, dec:2 },
     setBenzinV:  { get:function(){return settings.benzinerverbrauch;}, set:function(v){settings.benzinerverbrauch=v;}, min:0.1, dec:1 },
+    setTank:     { get:function(){return settings.tankL;}, set:function(v){settings.tankL=v;}, min:1, dec:0 },
+    setCo2Benzin:{ get:function(){return settings.co2Benzin;}, set:function(v){settings.co2Benzin=v;}, min:0, dec:0 },
+    setCo2Strom: { get:function(){return settings.co2Strom;}, set:function(v){settings.co2Strom=v;}, min:0, dec:0 },
     setNetz:     { get:function(){return settings.prices.netz;}, set:function(v){settings.prices.netz=v;}, min:0, dec:2 },
     setPv100:    { get:function(){return settings.prices.pv100;}, set:function(v){settings.prices.pv100=v;}, min:0, dec:2 },
     setPv50:     { get:function(){return settings.prices.pv50;}, set:function(v){settings.prices.pv50=v;}, min:0, dec:2 },
@@ -1862,12 +1945,9 @@
 })();
 </script>
 <script>
-/* PWA: Service Worker registrieren (relativer Pfad -> funktioniert unter /KONAApp/) */
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", function () {
-    navigator.serviceWorker.register("./sw.js").catch(function (e) {
-      console.warn("SW-Registrierung fehlgeschlagen:", e);
-    });
+    navigator.serviceWorker.register("./sw.js").catch(function (e) { console.warn("SW:", e); });
   });
 }
 </script>
