@@ -1,0 +1,1875 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#eef3f6">
+<title>Kona 64 kWh</title>
+<meta name="description" content="Ladestand, Reichweite, Ladezeit und Kosten für den Hyundai Kona Electric (64 kWh).">
+<link rel="manifest" href="./manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Kona 64">
+<link rel="apple-touch-icon" href="./icons/icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+<style>
+  :root{
+    --bg:#eef3f6;
+    --card:#ffffff;
+    --ink:#153039;
+    --muted:#6a8792;
+    --accent:#0d9aac;
+    --accent-d:#0b8394;
+    --accent-soft:#e3f4f6;
+    --border:#d2e0e5;
+    --track:#d9e5e9;
+    --warn:#c0742a;
+    /* dezente Typ-Farben zur Orientierung */
+    --tc-km:#0d9aac;
+    --tc-eur:#3f9e6b;
+    --tc-time:#5b6fc0;
+    --tc-energy:#7c8a99;
+  }
+  /* Werttyp -> Akzentfarbe je Karte */
+  .t-km{--tc:var(--tc-km);}
+  .t-eur{--tc:var(--tc-eur);}
+  .t-time{--tc:var(--tc-time);}
+  .t-energy{--tc:var(--tc-energy);}
+  /* Farbcodierung nur aktiv, wenn body.tc gesetzt ist (leicht abschaltbar) */
+  .tc .kpi, .tc .res, .tc .kmc{position:relative;}
+  .tc .kpi::before, .tc .res::before, .tc .kmc::before{
+    content:""; position:absolute; left:0; top:8px; bottom:8px; width:3px;
+    border-radius:0 3px 3px 0; background:var(--tc, transparent);
+  }
+  .tc .kpi .k-unit, .tc .res .r-unit{color:var(--tc);}
+  .tc .sum-label::before{
+    content:""; display:inline-block; width:6px; height:6px; border-radius:50%;
+    background:var(--tc, transparent); flex:0 0 auto;
+  }
+  .tc .sum-cell .sum-label{color:var(--tc);}
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    padding:10px 12px calc(16px + env(safe-area-inset-bottom));
+    max-width:440px;
+    margin:0 auto;
+    line-height:1.25;
+    font-size:14px;
+  }
+
+  /* HEADER */
+  .header{position:relative; text-align:center; padding-bottom:8px; margin-bottom:9px; border-bottom:1px solid var(--border);}
+  .header h1{font-size:20px; font-weight:700; margin:0; letter-spacing:-.2px;}
+  .header .sub{font-size:12.5px; color:var(--muted); margin-top:1px; letter-spacing:.3px;}
+  .gear{position:absolute; top:-2px; right:-4px; width:40px; height:40px; border:none;
+        background:none; padding:0; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--muted);}
+  .wif-icon{position:absolute; top:-2px; right:38px; width:40px; height:40px; border:none;
+        background:none; padding:0; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--accent-d);}
+
+  /* CARD */
+  .card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:11px 13px;
+    margin-bottom:8px;
+    box-shadow:0 1px 2px rgba(21,48,57,.04);
+  }
+  .card-title{font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); margin:0 0 8px;}
+
+  /* ERGEBNIS-INFOLEISTE */
+  .summary{
+    display:flex; align-items:stretch;
+    background:#fff; border:1px solid var(--border); border-radius:12px;
+    padding:6px 2px; margin-bottom:9px; box-shadow:0 1px 2px rgba(21,48,57,.04);
+  }
+  .sum-cell{flex:1 1 0; min-width:0; text-align:center; padding:1px 5px; display:flex; flex-direction:column; justify-content:center; gap:1px; overflow:hidden;}
+  .sum-label{font-size:10px; font-weight:600; letter-spacing:.7px; text-transform:uppercase; color:var(--muted); line-height:1.1; display:flex; align-items:center; justify-content:center; gap:3px;}
+  .sum-val{font-size:15px; font-weight:600; color:var(--ink); letter-spacing:-.3px; white-space:nowrap; line-height:1.2;}
+  .sum-cost{font-weight:700;}
+  .sum-sub{font-size:9px; font-weight:600; color:var(--muted); line-height:1.1; margin-top:1px;}
+  .sum-sep{width:1px; flex:0 0 auto; background:var(--border); align-self:stretch; margin:3px 0;}
+  .sum-info{border:none; background:none; padding:0; color:var(--accent-d); font-size:11px; line-height:1; cursor:pointer;}
+
+  /* AKKUSTAND */
+  .akku-head{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px;}
+  .akku-head .card-title{margin:0;}
+  .veh-btn{
+    flex:0 0 auto; display:inline-flex; align-items:center; gap:5px;
+    font-family:inherit; font-size:12px; font-weight:600;
+    border:1.5px solid var(--border); background:#fff; color:var(--accent-d);
+    border-radius:9px; padding:5px 9px; cursor:pointer; min-height:30px;
+  }
+  .veh-btn:active{background:var(--accent-soft);}
+  .veh-btn[disabled]{opacity:.55; cursor:default;}
+  .veh-btn .ico{display:inline-block; font-size:14px; line-height:1;}
+  .veh-btn.loading .ico{animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .veh-status{font-size:11px; color:var(--muted); text-align:center; margin-top:6px; min-height:14px; line-height:1.25;}
+  .veh-status.ok{color:var(--accent-d); font-weight:600;}
+  .veh-status.err{color:var(--warn); font-weight:600;}
+  .veh-status[hidden]{display:none;}
+
+  .big-soc{font-size:42px; font-weight:700; text-align:center; line-height:1; margin:2px 0 12px; letter-spacing:-1px;}
+  .big-soc .u{font-size:22px; font-weight:600; color:var(--muted);}
+  .slider-row{display:flex; align-items:center; gap:9px;}
+  .slider-row .end{font-size:12px; color:var(--muted); flex:0 0 auto; width:34px; text-align:center;}
+
+  input[type=range]{
+    flex:1 1 auto; height:30px; -webkit-appearance:none; appearance:none;
+    background:transparent; margin:0; --fill:62%;
+  }
+  input[type=range]::-webkit-slider-runnable-track{
+    height:5px; border-radius:4px;
+    background:linear-gradient(to right, var(--accent) 0 var(--fill), var(--track) var(--fill) 100%);
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none;
+    width:22px; height:22px; margin-top:-9px; border-radius:50%;
+    background:#fff; border:3px solid var(--accent);
+    box-shadow:0 1px 3px rgba(13,154,172,.35);
+  }
+  input[type=range]::-moz-range-track{height:5px; border-radius:4px; background:var(--track);}
+  input[type=range]::-moz-range-progress{height:5px; border-radius:4px; background:var(--accent);}
+  input[type=range]::-moz-range-thumb{
+    width:22px; height:22px; border-radius:50%;
+    background:#fff; border:3px solid var(--accent);
+  }
+
+  /* KPI ROW */
+  .kpis{display:flex; gap:8px; margin-bottom:8px; position:sticky; top:0; z-index:20; background:var(--bg); padding:6px 0;}
+  .kpi{
+    flex:1 1 0; min-width:0;
+    background:var(--card); border:1px solid var(--border);
+    border-radius:12px; padding:9px 10px; box-shadow:0 1px 2px rgba(21,48,57,.04);
+  }
+  .kpi .k-label{font-size:11px; color:var(--muted); display:block; margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .kpi .k-val{font-size:19px; font-weight:700; letter-spacing:-.3px;}
+  .kpi .k-unit{font-size:11px; color:var(--muted); font-weight:500;}
+
+  /* CHIPS */
+  .chips{display:flex; gap:6px; flex-wrap:nowrap;}
+  .chip{
+    flex:1 1 0; min-width:0;
+    background:#fff; border:1.5px solid var(--border);
+    border-radius:11px; padding:6px 4px; cursor:pointer; color:var(--ink);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+    min-height:46px; text-align:center; user-select:none; transition:background .1s, border-color .1s;
+  }
+  .chip-label{font-size:11px; color:var(--muted); line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;}
+  .chip-val{font-size:17px; font-weight:700; line-height:1;}
+  .chip.active{background:var(--accent); border-color:var(--accent);}
+  .chip.active .chip-label{color:#d6f2f6;}
+  .chip.active .chip-val{color:#fff;}
+  .chip-input{
+    width:100%; font-family:inherit; font-size:16px; font-weight:600; text-align:center;
+    border:1.5px solid var(--border); border-radius:7px; padding:2px 2px;
+    color:var(--ink); background:#fff; -webkit-appearance:none; appearance:none; min-width:0;
+  }
+  .chip.active .chip-input{border-color:#fff;}
+
+  /* LADELEISTUNG STRIP */
+  .power-wrap{margin-top:9px;}
+  .power-cap{font-size:11px; color:var(--muted); margin-bottom:4px; letter-spacing:.3px;}
+  .power-chips{display:flex; gap:5px; flex-wrap:nowrap; overflow-x:auto; padding-bottom:2px; scrollbar-width:none; -webkit-overflow-scrolling:touch;}
+  .power-chips::-webkit-scrollbar{display:none;}
+  .ppill{
+    flex:0 0 auto; border:1.5px solid var(--border); background:#fff; border-radius:9px;
+    padding:6px 10px; font-size:12.5px; font-weight:600; white-space:nowrap; color:var(--ink); cursor:pointer; min-height:34px;
+  }
+  .ppill .pk{color:var(--muted); font-weight:500; font-size:11px; margin-left:3px;}
+  .ppill.active{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .ppill.active .pk{color:#d6f2f6;}
+  .power-custom{display:flex; align-items:center; gap:7px; margin-top:7px; font-size:12px; color:var(--muted);}
+  .power-custom input{width:66px; font-family:inherit; font-size:16px; font-weight:600; text-align:right; border:1.5px solid var(--border); border-radius:7px; padding:4px 6px; color:var(--ink); background:#fff; -webkit-appearance:none; appearance:none;}
+  .acdc{display:flex; gap:4px;}
+  .acdc button{font-family:inherit; font-size:12px; font-weight:600; border:1.5px solid var(--border); background:#fff; color:var(--ink); border-radius:7px; padding:5px 11px; cursor:pointer; min-height:32px;}
+  .acdc button.active{background:var(--accent); border-color:var(--accent); color:#fff;}
+
+  /* ZIEL */
+  .target-top{display:flex; align-items:center; gap:8px;}
+  .big-target{font-size:28px; font-weight:700; line-height:1; flex:0 0 auto; letter-spacing:-.5px; min-width:56px;}
+  .big-target .u{font-size:16px; font-weight:600; color:var(--muted);}
+  .target-chips{flex:1 1 auto; min-width:0; gap:5px; overflow-x:auto; flex-wrap:nowrap; scrollbar-width:none; -webkit-overflow-scrolling:touch;}
+  .target-chips::-webkit-scrollbar{display:none;}
+  .tchip{flex:0 0 auto; min-height:40px; padding:5px 11px;}
+  #targetCustom{width:42px;}
+  .chip[hidden]{display:none;}
+  .tchip .chip-val{font-size:14px;}
+  .results2{display:flex; gap:8px; margin-top:10px;}
+  .res{
+    flex:1 1 0; min-width:0; border:1px solid var(--border); background:var(--accent-soft);
+    border-radius:11px; padding:8px 6px; text-align:center;
+  }
+  .res .r-label{font-size:11px; color:var(--muted); display:block; margin-bottom:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .res .r-val{font-size:20px; font-weight:700; letter-spacing:-.3px;}
+  .res .r-unit{font-size:11px; color:var(--muted); font-weight:500;}
+  .res .r-time{font-size:15px; font-weight:700; white-space:nowrap; letter-spacing:-.3px;}
+  .nachladen{text-align:center; font-size:13px; color:var(--muted); margin-top:8px;}
+  .nachladen b{color:var(--ink); font-weight:700;}
+  .lz-rate{text-align:center; font-size:12px; font-weight:600; color:var(--accent-d); margin-top:8px;}
+  .lz-note{display:flex; align-items:center; justify-content:center; gap:6px; font-size:11px; color:var(--muted); margin-top:4px;}
+  .info-btn{border:none; background:none; color:var(--accent-d); font-size:16px; cursor:pointer; padding:2px 4px; line-height:1;}
+  .lz-info{font-size:11.5px; color:var(--ink); background:var(--accent-soft); border-radius:9px; padding:8px 10px; margin-top:6px; line-height:1.35;}
+  .lz-info[hidden]{display:none;}
+  .warn{color:var(--warn); font-size:12.5px; text-align:center; margin-top:5px; display:none;}
+  .warn.show{display:block;}
+
+  /* PREIS */
+  .price-big{text-align:center; font-size:15px; color:var(--muted); font-weight:600; margin-top:11px;}
+  .price-big span{font-size:26px; font-weight:700; color:var(--ink); letter-spacing:-.5px;}
+  .save-note{text-align:center; font-size:12.5px; color:var(--accent-d); margin-top:2px; font-weight:600;}
+  .km-cost{display:flex; gap:8px; margin-top:10px;}
+  .kmc{flex:1 1 0; min-width:0; text-align:center; border:1px solid var(--border); background:var(--accent-soft); border-radius:11px; padding:6px 6px; cursor:pointer; -webkit-tap-highlight-color:transparent;}
+  .kmc:active{background:#d5ebee;}
+  .kmc-label{display:block; font-size:11px; color:var(--muted); margin-bottom:1px;}
+  .kmc-val{display:block; font-size:14px; font-weight:700; color:var(--ink); letter-spacing:-.2px; white-space:nowrap;}
+  .kmc-diff{display:block; font-size:10px; color:var(--muted); margin-top:1px; white-space:nowrap;}
+  .kmc-diff.save{color:var(--accent-d);}
+  .kmc-diff.more{color:var(--warn);}
+  .kmc-base{display:block; font-size:9.5px; color:var(--muted); margin-top:1px; white-space:nowrap;}
+  .kmc-base .pen{color:var(--accent-d); font-size:10px;}
+  .save-note{cursor:pointer;}
+  .save-note::after{content:" \270E"; color:var(--accent-d); font-size:11px; font-weight:400;}
+  .benz-overlay{align-items:flex-end; padding:0;}
+  .benz-field{display:block; font-size:14px; color:var(--ink); margin-top:10px;}
+  .benz-input-wrap{display:flex; align-items:center; gap:8px; margin-top:8px;}
+  .benz-input-wrap input{flex:1 1 auto; min-width:0; font-family:inherit; font-size:20px; font-weight:700; text-align:right; border:1.5px solid var(--border); border-radius:10px; padding:10px 12px; background:#fff; color:var(--ink); -webkit-appearance:none; appearance:none;}
+  .benz-input-wrap input:focus{outline:none; border-color:var(--accent);}
+  .benz-input-wrap .unit{font-size:14px; color:var(--muted); flex:0 0 auto;}
+  .kona-block{display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; margin-top:8px; font-family:inherit; text-align:left; background:#fff; border:1.5px solid var(--border); border-radius:11px; padding:7px 11px; cursor:pointer; color:var(--ink); -webkit-tap-highlight-color:transparent;}
+  .kona-block.active{border-color:var(--accent); background:var(--accent-soft);}
+  .kona-main{display:flex; align-items:baseline; gap:8px; min-width:0;}
+  .kona-lbl{font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); flex:0 0 auto;}
+  .kona-block.active .kona-lbl{color:var(--accent-d);}
+  .kona-val{font-size:15px; font-weight:700; letter-spacing:-.2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .kona-val.placeholder{font-size:12.5px; font-weight:500; color:var(--muted);}
+  .kona-edit{flex:0 0 auto; color:var(--accent-d); font-size:14px; padding:2px 4px;}
+  .kona-soc{font-size:13px; color:var(--ink); margin-top:8px;}
+  .kona-soc b{color:var(--accent-d);}
+  .kona-result{font-size:14px; color:var(--ink); margin-top:10px;}
+  .kona-result b{font-size:17px; font-weight:700; color:var(--accent-d);}
+  .shot-btn{width:100%; margin-top:10px;}
+  .kona-ocr{font-size:12px; margin-top:8px; padding:7px 9px; border-radius:9px; background:var(--accent-soft); color:var(--ink); line-height:1.35;}
+  .kona-ocr.err{color:var(--warn); background:#fbeee2;}
+  .kona-ocr.loading{color:var(--muted);}
+  .kona-ocr[hidden]{display:none;}
+  /* Was-wäre-wenn */
+  .wif-open-btn{display:block; width:100%; margin:0 auto 4px; font-family:inherit; font-size:14px; font-weight:600; padding:11px; border:1.5px solid var(--border); border-radius:12px; background:#fff; color:var(--accent-d); cursor:pointer;}
+  .wif-group{font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.6px; color:var(--accent-d); margin:15px 0 2px; border-bottom:1px solid var(--border); padding-bottom:2px;}
+  .wif-div{border:none; border-top:1px solid var(--border); margin:14px 0 4px;}
+  .wif-ctx{font-size:12px; color:var(--muted); margin-top:2px;}
+  .wif-soc-in{width:42px; font-family:inherit; font-size:13px; font-weight:600; text-align:center; border:1.5px solid var(--border); border-radius:6px; padding:2px 4px; color:var(--ink); background:#fff; -webkit-appearance:none; appearance:none;}
+  .wif-soc-in:focus{outline:none; border-color:var(--accent);}
+  .wif-div{border:none; border-top:1px solid var(--border); margin:8px 0 3px;}
+  .wif-row{margin:4px 0;}
+  .wif-top{display:flex; align-items:baseline; justify-content:space-between; gap:8px;}
+  .wif-lbl{font-size:12.5px; color:var(--ink);}
+  .wif-val{font-size:13px; font-weight:700; color:var(--ink); white-space:nowrap;}
+  .wif-slider{width:100%; height:22px; -webkit-appearance:none; appearance:none; background:transparent; margin:1px 0 0; --fill:50%; --sldcol:var(--tc, var(--accent));}
+  .wif-slider::-webkit-slider-runnable-track{height:4px; border-radius:4px; background:linear-gradient(to right, var(--sldcol) 0 var(--fill), var(--track) var(--fill) 100%);}
+  .wif-slider::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:18px; height:18px; margin-top:-7px; border-radius:50%; background:#fff; border:3px solid var(--sldcol); box-shadow:0 1px 2px rgba(0,0,0,.2);}
+  .wif-slider::-moz-range-track{height:4px; border-radius:4px; background:var(--track);}
+  .wif-slider::-moz-range-progress{height:4px; border-radius:4px; background:var(--sldcol);}
+  .wif-slider::-moz-range-thumb{width:18px; height:18px; border-radius:50%; background:#fff; border:3px solid var(--sldcol);}
+  select.sel{flex:0 0 auto; font-family:inherit; font-size:15px; border:1.5px solid var(--border); border-radius:8px; padding:6px 8px; background:#fff; color:var(--ink); max-width:150px;}
+  select.sel:focus{outline:none; border-color:var(--accent);}
+  #setAnthropicKey{width:160px;}
+
+  .footer-note{text-align:center; font-size:11.5px; color:var(--muted); margin-top:6px;}
+
+  /* LADEKURVE-SHEET */
+  .lz-overlay{align-items:flex-end; padding:0;}
+  .sheet{
+    background:var(--card); border:1px solid var(--border); border-bottom:none;
+    border-radius:18px 18px 0 0; width:100%; max-width:440px; margin:0 auto;
+    padding:10px 16px calc(16px + env(safe-area-inset-bottom));
+    max-height:92vh; overflow:auto; box-shadow:0 -8px 40px rgba(21,48,57,.22);
+  }
+  .sheet-grip{width:38px; height:4px; border-radius:3px; background:var(--border); margin:2px auto 10px;}
+  .sheet-head{display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
+  .sheet-head h2{font-size:17px; font-weight:700; margin:0;}
+  .sheet-head .m-sub{font-size:11.5px; color:var(--muted); margin:2px 0 0;}
+  .sheet-close{border:none; background:none; color:var(--muted); font-size:24px; line-height:1; cursor:pointer; padding:0 2px; flex:0 0 auto;}
+  .lz-markers{display:flex; justify-content:space-between; font-size:11.5px; font-weight:600; color:var(--accent-d); margin:10px 0 4px;}
+  .lz-graph{margin:0 -2px;}
+  .lz-graph svg{width:100%; height:auto; display:block;}
+  .lz-empty{font-size:13px; color:var(--muted); text-align:center; padding:18px 8px;}
+  .lz-acnote{font-size:11.5px; color:var(--muted); margin-top:6px; font-style:italic;}
+  .lz-total{font-size:13px; font-weight:600; color:var(--ink); margin-top:8px;}
+  .lz-total b{color:var(--accent-d);}
+  .lz-segs{margin-top:6px; font-size:12px;}
+  .lz-segs .seg{display:flex; justify-content:space-between; gap:8px; padding:3px 0; border-bottom:1px dashed var(--border);}
+  .lz-segs .seg .s-range{color:var(--muted);}
+  .lz-segs .seg .s-pow{font-weight:600; white-space:nowrap;}
+  .lz-disclaimer{font-size:10.5px; color:var(--muted); line-height:1.4; margin:12px 0 2px;}
+
+  /* MODAL */
+  .overlay{
+    position:fixed; inset:0; background:rgba(21,48,57,.4);
+    display:none; align-items:flex-start; justify-content:center;
+    padding:16px 12px calc(16px + env(safe-area-inset-bottom));
+    overflow:auto; z-index:50;
+  }
+  .overlay.open{display:flex;}
+  .modal{
+    background:var(--card); border:1px solid var(--border);
+    border-radius:16px; max-width:400px; width:100%; padding:16px 18px; margin:auto;
+    box-shadow:0 12px 40px rgba(21,48,57,.22);
+  }
+  .modal h2{font-size:18px; font-weight:700; margin:0;}
+  .modal .m-sub{font-size:12px; color:var(--muted); margin:2px 0 4px;}
+  .grp-title{font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.6px; color:var(--accent-d); margin:15px 0 4px; padding-bottom:3px; border-bottom:1px solid var(--border);}
+  .field{display:flex; align-items:center; gap:8px; margin:7px 0;}
+  .field label{font-size:14px; flex:1 1 auto;}
+  .field input{
+    width:82px; flex:0 0 auto; font-family:inherit; font-size:16px; text-align:right;
+    border:1.5px solid var(--border); border-radius:8px; padding:6px 8px;
+    background:#fff; color:var(--ink); -webkit-appearance:none; appearance:none;
+  }
+  .field input:focus{outline:none; border-color:var(--accent);}
+  .field .unit{font-size:11.5px; color:var(--muted); flex:0 0 auto; width:58px;}
+  .crow{display:flex; align-items:center; gap:6px; margin:6px 0;}
+  .crow .cname{flex:1 1 auto; min-width:0; font-family:inherit; font-size:13.5px; border:1.5px solid var(--border); border-radius:7px; padding:5px 7px; background:#fff; color:var(--ink);}
+  .crow .ckw{width:54px; flex:0 0 auto; font-family:inherit; font-size:15px; text-align:right; border:1.5px solid var(--border); border-radius:7px; padding:5px 6px; background:#fff; color:var(--ink);}
+  .crow .cfac{width:52px; flex:0 0 auto; font-family:inherit; font-size:15px; text-align:right; border:1.5px solid var(--border); border-radius:7px; padding:5px 6px; background:#fff; color:var(--ink);}
+  .crow .cunit{font-size:11px; color:var(--muted); flex:0 0 auto;}
+  .crow label{flex:1 1 auto; font-size:13px;}
+  .crow .acdc button{padding:5px 8px; min-height:30px; font-size:11px;}
+  .adv{margin-top:14px; border-top:1px solid var(--border); padding-top:2px;}
+  .adv summary{font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.6px; color:var(--accent-d); cursor:pointer; padding:8px 0; list-style:revert;}
+  .adv .m-sub{margin-top:0;}
+  .veh-status-row{font-size:13px; margin:2px 0 8px;}
+  .veh-status-row b{color:var(--accent-d); font-weight:600;}
+  .veh-toggle{display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:14px; margin:6px 0;}
+  .veh-toggle input{width:20px; height:20px; flex:0 0 auto; accent-color:var(--accent);}
+  .modal-btns{display:flex; gap:9px; margin-top:16px;}
+  .btn{
+    flex:1; font-family:inherit; font-size:14px; font-weight:600; padding:11px 8px;
+    border:1.5px solid var(--border); border-radius:11px;
+    background:#fff; color:var(--ink); cursor:pointer; min-height:44px;
+  }
+  .btn-primary{background:var(--accent); color:#fff; border-color:var(--accent);}
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>Kona 64 kWh</h1>
+    <div class="sub">% &rarr; kW &rarr; Reichweite</div>
+    <button class="gear" id="gearBtn" aria-label="Einstellungen">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3.1"/>
+        <path d="M12 2.6v2.3M12 19.1v2.3M4.4 4.4l1.6 1.6M18 18l1.6 1.6M2.6 12h2.3M19.1 12h2.3M4.4 19.6l1.6-1.6M18 6l1.6-1.6"/>
+      </svg>
+    </button>
+    <button class="wif-icon" id="wifOpen" type="button" aria-label="Was-wäre-wenn">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="4" y1="7" x2="20" y2="7"/><circle cx="15" cy="7" r="2.3" fill="#fff"/>
+        <line x1="4" y1="12" x2="20" y2="12"/><circle cx="9" cy="12" r="2.3" fill="#fff"/>
+        <line x1="4" y1="17" x2="20" y2="17"/><circle cx="16" cy="17" r="2.3" fill="#fff"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- ERGEBNIS-INFOLEISTE -->
+  <div class="summary">
+    <div class="sum-cell t-km">
+      <div class="sum-label">Ziel</div>
+      <div class="sum-val" id="sumRange">341 km</div>
+      <div class="sum-sub" id="sumRangeAdd">+0 km</div>
+    </div>
+    <div class="sum-sep"></div>
+    <div class="sum-cell t-time">
+      <div class="sum-label">Zeit <button class="sum-info js-lz" id="lzInfo" type="button" aria-label="Ladekurve anzeigen">&#9432;</button></div>
+      <div class="sum-val" id="sumTime">ca. 24 min</div>
+    </div>
+    <div class="sum-sep"></div>
+    <div class="sum-cell t-eur">
+      <div class="sum-label">Kosten</div>
+      <div class="sum-val sum-cost" id="sumCost">12,16 €</div>
+    </div>
+  </div>
+
+  <!-- AKTUELLER AKKUSTAND -->
+  <div class="card">
+    <div class="akku-head">
+      <div class="card-title">Aktueller Akkustand</div>
+      <button class="veh-btn" id="vehBtn" type="button" aria-label="Ladestand aus Fahrzeug übernehmen"><span class="ico">&#8635;</span> Fahrzeug</button>
+    </div>
+    <div class="big-soc"><span id="socBig">62</span><span class="u">&nbsp;%</span></div>
+    <div class="slider-row">
+      <span class="end">0 %</span>
+      <input type="range" id="socSlider" min="0" max="100" step="1" value="62" aria-label="Aktueller Akkustand in Prozent">
+      <span class="end">100 %</span>
+    </div>
+    <div class="veh-status" id="vehStatus"></div>
+  </div>
+
+  <!-- KPI ROW -->
+  <div class="kpis">
+    <div class="kpi t-energy">
+      <span class="k-label">Im Akku</span>
+      <span class="k-val" id="imAkku">39,7</span> <span class="k-unit">kW</span>
+    </div>
+    <div class="kpi t-energy">
+      <span class="k-label">Verbrauch</span>
+      <span class="k-val" id="verbrauchKpi">15</span> <span class="k-unit">kWh/100 km</span>
+    </div>
+    <div class="kpi t-km">
+      <span class="k-label">Reichweite</span>
+      <span class="k-val" id="reichweiteKpi">265</span> <span class="k-unit">km</span>
+    </div>
+  </div>
+
+  <!-- VERBRAUCH -->
+  <div class="card">
+    <div class="card-title">Verbrauch wählen</div>
+    <div class="chips" id="consChips">
+      <div class="chip" data-cons="sparsam"><span class="chip-label">sparsam</span><span class="chip-val" data-cval="sparsam">13</span></div>
+      <div class="chip" data-cons="normal"><span class="chip-label">normal</span><span class="chip-val" data-cval="normal">15</span></div>
+      <div class="chip" data-cons="autobahn"><span class="chip-label">Autobahn</span><span class="chip-val" data-cval="autobahn">19</span></div>
+      <div class="chip" data-cons="winter"><span class="chip-label">Winter</span><span class="chip-val" data-cval="winter">20</span></div>
+      <div class="chip" data-cons="individuell"><span class="chip-label">individuell</span><input class="chip-input" id="consCustom" inputmode="decimal" value="16,5" aria-label="Individueller Verbrauch"></div>
+    </div>
+    <button class="kona-block" id="konaBlock" type="button">
+      <span class="kona-main"><span class="kona-lbl">aus Kona</span><span class="kona-val" id="konaVal">Reichweite eingeben</span></span>
+      <span class="kona-edit" id="konaEdit" aria-label="Kona-Reichweite eingeben">&#9998;</span>
+    </button>
+  </div>
+
+  <!-- ZIEL + LADELEISTUNG + LADEZEIT -->
+  <div class="card">
+    <div class="card-title">Ziel-Ladestand</div>
+    <div class="target-top">
+      <div class="big-target"><span id="targetBig">80</span><span class="u">&nbsp;%</span></div>
+      <div class="chips target-chips" id="targetChips">
+        <div class="chip tchip" data-target="25"><span class="chip-val">25</span></div>
+        <div class="chip tchip" data-target="30"><span class="chip-val">30</span></div>
+        <div class="chip tchip" data-target="40"><span class="chip-val">40</span></div>
+        <div class="chip tchip" data-target="50"><span class="chip-val">50</span></div>
+        <div class="chip tchip" data-target="60"><span class="chip-val">60</span></div>
+        <div class="chip tchip" data-target="70"><span class="chip-val">70</span></div>
+        <div class="chip tchip" data-target="80"><span class="chip-val">80</span></div>
+        <div class="chip tchip" data-target="90"><span class="chip-val">90</span></div>
+        <div class="chip tchip" data-target="100"><span class="chip-val">100</span></div>
+        <div class="chip tchip" data-target="ind"><input class="chip-input" id="targetCustom" inputmode="numeric" placeholder="%" aria-label="Individueller Ziel-Ladestand"></div>
+      </div>
+    </div>
+
+    <div class="power-wrap">
+      <div class="power-cap">Laden mit</div>
+      <div class="chips power-chips" id="powerChips"></div>
+      <div class="power-custom" id="powerCustom" hidden>
+        <input id="chargerCustomKw" inputmode="decimal" value="11" aria-label="Individuelle Ladeleistung"><span>kW</span>
+        <div class="acdc">
+          <button type="button" data-ctype="AC">AC</button>
+          <button type="button" data-ctype="DC">DC</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="results2">
+      <div class="res t-energy">
+        <span class="r-label">Ziel im Akku</span>
+        <span class="r-val" id="zielAkku">51,2</span> <span class="r-unit">kW</span>
+      </div>
+      <div class="res t-energy">
+        <span class="r-label">Nachzuladen</span>
+        <span class="r-val" id="nachzuladen">11,5</span> <span class="r-unit">kW</span>
+      </div>
+      <div class="res t-time">
+        <span class="r-label">ca. Ladezeit</span>
+        <span class="r-time" id="ladezeitZiel">ca. 1 h 03 min</span>
+      </div>
+    </div>
+    <div class="lz-rate" id="lzRate">≈ 1,2 km/min · 73 km/h</div>
+    <div class="lz-note"><span id="lzNote">inkl. Ladekurve</span><button class="info-btn js-lz" id="lzInfo2" type="button" aria-label="Ladekurve anzeigen">&#9432;</button></div>
+    <div class="warn" id="targetWarn">Ziel liegt unter dem aktuellen Stand &ndash; nichts nachzuladen.</div>
+  </div>
+
+  <!-- PREIS -->
+  <div class="card">
+    <div class="card-title">Preis für Aufladung</div>
+    <div class="chips" id="priceChips">
+      <div class="chip" data-price="netz"><span class="chip-label">Netz</span><span class="chip-val" data-pval="netz">0,30</span></div>
+      <div class="chip" data-price="pv100"><span class="chip-label">PV 100%</span><span class="chip-val" data-pval="pv100">0,08</span></div>
+      <div class="chip" data-price="pv50"><span class="chip-label">PV 50%</span><span class="chip-val" data-pval="pv50">0,19</span></div>
+      <div class="chip" data-price="unterwegs"><span class="chip-label">Unterwegs</span><span class="chip-val" data-pval="unterwegs">0,59</span></div>
+      <div class="chip" data-price="individuell"><span class="chip-label">individ.</span><input class="chip-input" id="priceCustom" inputmode="decimal" value="0,25" aria-label="Individueller Preis pro kWh"></div>
+    </div>
+    <div class="save-note" id="saveNote">ggü. Benziner spart ca. 10,60 €</div>
+    <div class="km-cost">
+      <div class="kmc t-eur" role="button" tabindex="0" aria-label="Benzinpreis ändern">
+        <span class="kmc-label">Preis / km</span>
+        <span class="kmc-val" id="costPerKm">0,09 €</span>
+        <span class="kmc-diff save" id="diffPerKm">−0,08 € ggü. Benz.</span>
+        <span class="kmc-base">bei <span class="kmc-base-val">2,10</span> €/l <span class="pen">&#9998;</span></span>
+      </div>
+      <div class="kmc t-eur" role="button" tabindex="0" aria-label="Benzinpreis ändern">
+        <span class="kmc-label">Preis / 100 km</span>
+        <span class="kmc-val" id="costPer100Km">9,00 €</span>
+        <span class="kmc-diff save" id="diffPer100Km">−8,00 € ggü. Benz.</span>
+        <span class="kmc-base">bei <span class="kmc-base-val">2,10</span> €/l <span class="pen">&#9998;</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">Reichweite = Schätzwert je nach Verbrauch</div>
+
+  <!-- SETTINGS MODAL -->
+  <div class="overlay" id="overlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-label="Einstellungen">
+      <h2>Einstellungen</h2>
+      <p class="m-sub">Änderungen wirken sofort &amp; werden gespeichert.</p>
+
+      <div class="grp-title">Darstellung</div>
+      <label class="veh-toggle" for="setTypeColors"><span>Farb-Orientierung (Karten nach Werttyp)</span><input type="checkbox" id="setTypeColors"></label>
+
+      <div class="grp-title">Fahrzeug</div>
+      <div class="field"><label for="setCap">Akkukapazität</label><input id="setCap" inputmode="decimal"><span class="unit">kWh</span></div>
+      <div class="field"><label for="setMaxAc">Max. AC-Ladeleistung</label><input id="setMaxAc" inputmode="decimal"><span class="unit">kW</span></div>
+      <div class="field"><label for="setMaxDc">Max. DC-Ladeleistung</label><input id="setMaxDc" inputmode="decimal"><span class="unit">kW</span></div>
+      <div class="field"><label for="setDefaultCharger">Standard-Ladeleistung</label><select id="setDefaultCharger" class="sel"></select></div>
+
+      <div class="grp-title">Benzinvergleich</div>
+      <div class="field"><label for="setBenzin">Benzinpreis</label><input id="setBenzin" inputmode="decimal"><span class="unit">€/l</span></div>
+      <div class="field"><label for="setBenzinV">Benziner-Verbrauch</label><input id="setBenzinV" inputmode="decimal"><span class="unit">l/100 km</span></div>
+
+      <div class="grp-title">Preise für Ladung</div>
+      <div class="field"><label for="setNetz">Netz</label><input id="setNetz" inputmode="decimal"><span class="unit">€/kWh</span></div>
+      <div class="field"><label for="setPv100">PV 100 %</label><input id="setPv100" inputmode="decimal"><span class="unit">€/kWh</span></div>
+      <div class="field"><label for="setPv50">PV 50 %</label><input id="setPv50" inputmode="decimal"><span class="unit">€/kWh</span></div>
+      <div class="field"><label for="setUnterwegs">Unterwegs</label><input id="setUnterwegs" inputmode="decimal"><span class="unit">€/kWh</span></div>
+
+      <div class="grp-title">Verbrauch-Presets</div>
+      <div class="field"><label for="setSparsam">sparsam</label><input id="setSparsam" inputmode="decimal"><span class="unit">kWh/100</span></div>
+      <div class="field"><label for="setNormal">normal</label><input id="setNormal" inputmode="decimal"><span class="unit">kWh/100</span></div>
+      <div class="field"><label for="setAutobahn">Autobahn</label><input id="setAutobahn" inputmode="decimal"><span class="unit">kWh/100</span></div>
+      <div class="field"><label for="setWinter">Winter</label><input id="setWinter" inputmode="decimal"><span class="unit">kWh/100</span></div>
+
+      <div class="grp-title">Ladeleistung-Presets</div>
+      <div id="chargerSettings"></div>
+
+      <details class="adv">
+        <summary>Erweitert &middot; DC-Ladekurve</summary>
+        <p class="m-sub">Anteil der max. DC-Leistung je Ladestand-Abschnitt.</p>
+        <div id="curveSettings"></div>
+      </details>
+
+      <div class="grp-title">Fahrzeugverbindung</div>
+      <div class="veh-status-row">Status: <b>Demo / noch nicht verbunden</b></div>
+      <label class="veh-toggle" for="setVehEnabled"><span>Fahrzeugdaten (Demo) aktivieren</span><input type="checkbox" id="setVehEnabled"></label>
+      <p class="m-sub">Später über einen eigenen sicheren Backend-Endpunkt. Es werden keine Zugangsdaten im Browser gespeichert.</p>
+      <div class="field"><label for="setAnthropicKey">OCR API-Key (optional)</label><input id="setAnthropicKey" type="password" autocomplete="off" placeholder="nur für eigenen Deploy"></div>
+      <p class="m-sub">Nur nötig, wenn du Screenshots auf deiner eigenen (GitHub-Pages-)Seite auslesen willst. In der Claude-App nicht erforderlich. Wird nur lokal im Browser gespeichert.</p>
+
+      <div class="modal-btns">
+        <button class="btn" id="resetBtn">Standardwerte</button>
+        <button class="btn btn-primary" id="closeBtn">Schließen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LADEKURVE INFO-SHEET -->
+  <div class="overlay lz-overlay" id="lzOverlay">
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="Geschätzte Ladekurve">
+      <div class="sheet-grip"></div>
+      <div class="sheet-head">
+        <div>
+          <h2>Geschätzte Ladekurve</h2>
+          <p class="m-sub">Vereinfachte Modellkurve zwischen aktuellem und Ziel-Ladestand</p>
+        </div>
+        <button class="sheet-close" id="lzClose" aria-label="Schließen">&times;</button>
+      </div>
+      <div class="lz-markers"><span id="lzStart">Start</span><span id="lzEnd">Ziel</span></div>
+      <div class="lz-graph" id="lzGraph"></div>
+      <div class="lz-acnote" id="lzAcNote" hidden>AC-Laden wird hier vereinfacht linear dargestellt.</div>
+      <div class="lz-total" id="lzTotal"></div>
+      <div class="lz-segs" id="lzSegs"></div>
+      <p class="lz-disclaimer">Schätzung auf Basis einer vereinfachten Ladekurve. Temperatur, Batteriezustand und Ladesäule können die tatsächliche Ladezeit verändern.</p>
+    </div>
+  </div>
+
+  <!-- BENZINPREIS SCHNELL ÄNDERN -->
+  <div class="overlay benz-overlay" id="benzOverlay">
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="Benzinpreis ändern">
+      <div class="sheet-grip"></div>
+      <div class="sheet-head">
+        <div><h2>Benzinpreis ändern</h2></div>
+        <button class="sheet-close" id="benzClose" aria-label="Schließen">&times;</button>
+      </div>
+      <label class="benz-field" for="benzInput">Aktueller Benzinpreis
+        <span class="benz-input-wrap"><input id="benzInput" inputmode="decimal" aria-label="Benzinpreis in Euro pro Liter"><span class="unit">€/l</span></span>
+      </label>
+      <p class="m-sub">Der Wert wird auch in den Einstellungen aktualisiert.</p>
+      <div class="modal-btns">
+        <button class="btn" id="benzCancel">Abbrechen</button>
+        <button class="btn btn-primary" id="benzApply">Übernehmen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VERBRAUCH AUS KONA-REICHWEITE -->
+  <div class="overlay benz-overlay" id="konaOverlay">
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="Verbrauch aus Kona">
+      <div class="sheet-grip"></div>
+      <div class="sheet-head">
+        <div><h2>Verbrauch aus Kona</h2></div>
+        <button class="sheet-close" id="konaClose" aria-label="Schließen">&times;</button>
+      </div>
+      <p class="m-sub">Kona-Screenshot einlesen (SoC, Reichweite &amp; km-Stand) – oder Reichweite manuell eingeben.</p>
+      <button class="btn btn-primary shot-btn" id="konaShot" type="button">Kona-Screenshot einlesen</button>
+      <input type="file" id="konaFile" accept="image/*" hidden>
+      <div class="kona-ocr" id="konaOcr" hidden></div>
+      <div class="kona-soc">Ladestand: <b id="konaSocLbl">62 %</b></div>
+      <label class="benz-field" for="konaRangeInput">Reichweite laut Kona
+        <span class="benz-input-wrap"><input id="konaRangeInput" inputmode="numeric" aria-label="Reichweite laut Kona in km"><span class="unit">km</span></span>
+      </label>
+      <div class="kona-result">Ø Verbrauch: <b id="konaResult">–</b></div>
+      <div class="modal-btns">
+        <button class="btn" id="konaCancel">Abbrechen</button>
+        <button class="btn btn-primary" id="konaApply">Übernehmen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- WAS-WÄRE-WENN (Skalen-Sandbox, Stufe 2) -->
+  <div class="overlay benz-overlay" id="wifOverlay">
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="Was-wäre-wenn">
+      <div class="sheet-grip"></div>
+      <div class="sheet-head">
+        <div><h2>Was-wäre-wenn</h2></div>
+        <button class="sheet-close" id="wifClose" aria-label="Schließen">&times;</button>
+      </div>
+      <div class="wif-ctx">Ist-Ladestand: <input id="wifSoc" class="wif-soc-in" inputmode="numeric" value="62"> % · Akku <span id="wifCap">64</span> kWh · inkl. DC-Ladekurve</div>
+
+      <hr class="wif-div">
+      <div class="wif-row t-energy"><div class="wif-top"><span class="wif-lbl">Ziel-Ladestand</span><span class="wif-val" id="wifZielV">80 %</span></div><input type="range" class="wif-slider" id="wifZiel" min="0" max="100" step="1"></div>
+      <div class="wif-row t-km"><div class="wif-top"><span class="wif-lbl">Zu ladende km</span><span class="wif-val" id="wifAddV">+77 km</span></div><input type="range" class="wif-slider" id="wifAdd" min="0" max="400" step="1"></div>
+
+      <hr class="wif-div">
+      <div class="wif-row t-energy"><div class="wif-top"><span class="wif-lbl">Verbrauch</span><span class="wif-val" id="wifVerbV">15 kWh</span></div><input type="range" class="wif-slider" id="wifVerb" min="8" max="30" step="0.1"></div>
+      <div class="wif-row t-km"><div class="wif-top"><span class="wif-lbl">Reichweite (Ziel)</span><span class="wif-val" id="wifRwV">341 km</span></div><input type="range" class="wif-slider" id="wifRw" min="0" max="600" step="1"></div>
+
+      <hr class="wif-div">
+      <div class="wif-row t-energy"><div class="wif-top"><span class="wif-lbl">Ladestärke</span><span class="wif-val" id="wifPowerV">11 kW</span></div><input type="range" class="wif-slider" id="wifPower" min="1.6" max="80" step="0.1"></div>
+      <div class="wif-row t-time"><div class="wif-top"><span class="wif-lbl">Ladedauer</span><span class="wif-val" id="wifZeitV">1 h 03 min</span></div><input type="range" class="wif-slider" id="wifZeit" min="0" max="2160" step="1"></div>
+
+      <hr class="wif-div">
+      <div class="wif-row t-eur"><div class="wif-top"><span class="wif-lbl">Strompreis</span><span class="wif-val" id="wifStromV">0,19 €/kWh</span></div><input type="range" class="wif-slider" id="wifStrom" min="0" max="1" step="0.01"></div>
+      <div class="wif-row t-eur"><div class="wif-top"><span class="wif-lbl">Ladepreis</span><span class="wif-val" id="wifPreisV">2,19 €</span></div><input type="range" class="wif-slider" id="wifPreis" min="0" max="40" step="0.1"></div>
+      <div class="wif-row t-eur"><div class="wif-top"><span class="wif-lbl">Benzinpreis</span><span class="wif-val" id="wifBenzinV">2,10 €/l</span></div><input type="range" class="wif-slider" id="wifBenzin" min="1" max="3" step="0.01"></div>
+      <div class="wif-row t-eur"><div class="wif-top"><span class="wif-lbl">Ersparnis ggü. Benzin</span><span class="wif-val" id="wifSparV">+10,60 €</span></div><input type="range" class="wif-slider" id="wifSpar" min="-20" max="80" step="0.1"></div>
+
+      <div class="modal-btns">
+        <button class="btn" id="wifReset">Zurücksetzen</button>
+        <button class="btn btn-primary" id="wifApply">Werte übernehmen</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+
+  var STORE_KEY = "kona64_v1";
+
+  var DEFAULTS = {
+    capacity: 64,
+    maxAc: 11,
+    maxDc: 75,
+    benzinpreis: 2.10,
+    benzinerverbrauch: 8.0,
+    consumption: { sparsam:13, normal:15, autobahn:19, winter:20 },
+    prices: { netz:0.30, pv100:0.08, pv50:0.19, unterwegs:0.59 },
+    chargers: [
+      { id:"home",    name:"Zuhause langsam", kw:1.6, type:"AC" },
+      { id:"socket",  name:"Steckdose",       kw:2.3, type:"AC" },
+      { id:"ac37",    name:"AC 3,7",          kw:3.7, type:"AC" },
+      { id:"ac74",    name:"AC 7,4",          kw:7.4, type:"AC" },
+      { id:"wallbox", name:"Wallbox",         kw:11,  type:"AC" },
+      { id:"ac22",    name:"AC 22",           kw:22,  type:"AC" },
+      { id:"dc50",    name:"DC 50",           kw:50,  type:"DC" },
+      { id:"dc75",    name:"DC 75",           kw:75,  type:"DC" },
+      { id:"dc100",   name:"DC 100",          kw:100, type:"DC" },
+      { id:"dc150",   name:"DC 150",          kw:150, type:"DC" },
+      { id:"hpc300",  name:"HPC 300",         kw:300, type:"DC" }
+    ],
+    dcCurve: [
+      { upTo:10,  factor:0.60 },
+      { upTo:55,  factor:1.00 },
+      { upTo:70,  factor:0.85 },
+      { upTo:75,  factor:0.65 },
+      { upTo:80,  factor:0.50 },
+      { upTo:90,  factor:0.35 },
+      { upTo:100, factor:0.20 }
+    ],
+    // Fahrzeugverbindung (aktuell nur Demo/Mock – keine echten Zugangsdaten)
+    vehicleEnabled: true,          // Demo aktiv -> Button sichtbar
+    vehicleProviderMode: "mock",   // "mock" | "backend"
+    vehicleBackendUrl: "",         // später: eigener sicherer Backend-/Proxy-Endpunkt
+    defaultCharger: "wallbox",     // Standard-Ladeleistung (Preset-ID)
+    anthropicKey: "",              // optional, nur für Screenshot-OCR beim eigenen Deploy (lokal)
+    typeColors: true               // dezente Farbcodierung der Karten nach Werttyp
+  };
+
+  function load(){
+    try{ var raw = localStorage.getItem(STORE_KEY); return raw ? JSON.parse(raw) : null; }
+    catch(e){ return null; }
+  }
+  function save(){
+    try{ localStorage.setItem(STORE_KEY, JSON.stringify({ settings:settings, state:state })); }
+    catch(e){ /* nur im Speicher */ }
+  }
+  function clone(o){ return JSON.parse(JSON.stringify(o)); }
+  function isNum(v){ return typeof v === "number" && isFinite(v); }
+
+  var persisted = load() || {};
+  var settings = mergeSettings(persisted.settings);
+  var state = Object.assign({
+    soc: 62,
+    consMode: "normal",
+    consCustom: "16,5",
+    targetSoc: 80,
+    targetCustom: "",
+    targetIsCustom: false,
+    priceMode: "pv50",
+    priceCustom: "0,25",
+    chargerMode: settings.defaultCharger,
+    chargerCustomKw: "11",
+    chargerCustomType: "DC",
+    socSource: "manual",       // "manual" | "vehicle"
+    vehicleRangeKm: null,
+    vehicleFetchedAt: null,
+    vehicleOdometer: null,     // km-Stand aus Kona-Screenshot (nachrichtlich)
+    vehicleChargeTime: null,   // Restladezeit aus Kona-Screenshot (Ladevariante)
+    konaCons: null,            // aus Kona-Reichweite berechneter Ø-Verbrauch
+    konaRange: ""              // zuletzt eingegebene Kona-Reichweite
+  }, persisted.state || {});
+
+  function mergeSettings(s){
+    var d = clone(DEFAULTS);
+    if(!s) return d;
+    if(isNum(s.capacity)) d.capacity = s.capacity;
+    if(isNum(s.maxAc)) d.maxAc = s.maxAc;
+    if(isNum(s.maxDc)) d.maxDc = s.maxDc;
+    if(isNum(s.benzinpreis)) d.benzinpreis = s.benzinpreis;
+    if(isNum(s.benzinerverbrauch)) d.benzinerverbrauch = s.benzinerverbrauch;
+    ["sparsam","normal","autobahn","winter"].forEach(function(k){
+      if(s.consumption && isNum(s.consumption[k])) d.consumption[k] = s.consumption[k];
+    });
+    ["netz","pv100","pv50","unterwegs"].forEach(function(k){
+      if(s.prices && isNum(s.prices[k])) d.prices[k] = s.prices[k];
+    });
+    if(Array.isArray(s.chargers)){
+      var cs = s.chargers.filter(function(c){
+        return c && typeof c.id === "string" && typeof c.name === "string" && isNum(c.kw) && (c.type==="AC"||c.type==="DC");
+      });
+      if(cs.length) d.chargers = cs.map(function(c){ return {id:c.id, name:c.name, kw:c.kw, type:c.type}; });
+    }
+    if(Array.isArray(s.dcCurve)){
+      var cv = s.dcCurve.filter(function(x){ return x && isNum(x.upTo) && isNum(x.factor); });
+      if(cv.length) d.dcCurve = cv.map(function(x){ return {upTo:x.upTo, factor:x.factor}; });
+    }
+    if(typeof s.vehicleEnabled === "boolean") d.vehicleEnabled = s.vehicleEnabled;
+    if(s.vehicleProviderMode === "mock" || s.vehicleProviderMode === "backend") d.vehicleProviderMode = s.vehicleProviderMode;
+    if(typeof s.vehicleBackendUrl === "string") d.vehicleBackendUrl = s.vehicleBackendUrl;
+    if(typeof s.defaultCharger === "string") d.defaultCharger = s.defaultCharger;
+    if(typeof s.anthropicKey === "string") d.anthropicKey = s.anthropicKey;
+    if(typeof s.typeColors === "boolean") d.typeColors = s.typeColors;
+    return d;
+  }
+
+  function pg(x){
+    if(x === null || x === undefined) return NaN;
+    var s = String(x).trim().replace(",", ".").replace(/[^0-9.\-]/g,"");
+    if(s === "" || s === "." || s === "-") return NaN;
+    return parseFloat(s);
+  }
+  function fmt(v, min, max){
+    return new Intl.NumberFormat("de-DE",{minimumFractionDigits:min,maximumFractionDigits:max}).format(v);
+  }
+  var f_kwh = function(v){ return fmt(v,1,1); };
+  var f_km  = function(v){ return fmt(Math.round(v),0,0); };
+  var f_eur = function(v){ return fmt(v,2,2); };            // immer 2 NK
+  function f_cons(v){ return Number.isInteger(v) ? fmt(v,0,0) : fmt(v,1,1); }
+  function f_price(v){ return fmt(v,2,2); }
+  function escHtml(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function escAttr(s){ return escHtml(s).replace(/"/g,"&quot;"); }
+
+  function chargerById(id){
+    for(var i=0;i<settings.chargers.length;i++){ if(settings.chargers[i].id===id) return settings.chargers[i]; }
+    return null;
+  }
+  function currentConsumption(){
+    if(state.consMode === "individuell"){
+      var v = pg(state.consCustom);
+      return (isFinite(v) && v > 0) ? v : DEFAULTS.consumption.normal;
+    }
+    if(state.consMode === "kona"){
+      return (isFinite(state.konaCons) && state.konaCons > 0) ? state.konaCons : DEFAULTS.consumption.normal;
+    }
+    return settings.consumption[state.consMode];
+  }
+  // Ø-Verbrauch aus Kona-Reichweite: kWh/100km = Kapazität × SoC ÷ Reichweite
+  function konaConsFrom(rangeKm, socPercent){
+    var r = pg(rangeKm);
+    if(!isFinite(r) || r <= 0) return NaN;
+    return settings.capacity * socPercent / r;
+  }
+  function currentPrice(){
+    if(state.priceMode === "individuell"){
+      var v = pg(state.priceCustom);
+      return (isFinite(v) && v >= 0) ? v : DEFAULTS.prices.netz;
+    }
+    return settings.prices[state.priceMode];
+  }
+  function currentTarget(){
+    if(state.targetIsCustom){
+      var v = pg(state.targetCustom);
+      if(isFinite(v)) return Math.max(0, Math.min(100, v));
+      return state.soc;
+    }
+    return state.targetSoc;
+  }
+  function currentCharger(){
+    if(state.chargerMode === "individuell"){
+      var kw = pg(state.chargerCustomKw);
+      return { kw:(isFinite(kw)&&kw>0)?kw:11, type:(state.chargerCustomType==="AC"?"AC":"DC") };
+    }
+    var c = chargerById(state.chargerMode);
+    return c ? {kw:c.kw, type:c.type} : {kw:11, type:"AC"};
+  }
+
+  // Ladeabschnitte (AC linear, DC über die Ladekurve) – gemeinsame Quelle für Zeit + Grafik
+  function chargeSegments(){
+    var cap = settings.capacity, soc = state.soc, target = currentTarget();
+    var ch = currentCharger();
+    var segs = [];
+    if(target > soc){
+      if(ch.type === "AC"){
+        var effAc = Math.min(ch.kw, settings.maxAc);
+        if(effAc > 0){
+          var e = cap * (target - soc) / 100;
+          segs.push({ lo:soc, hi:target, power:effAc, hours:e/effAc });
+        }
+      } else {
+        var maxDc = Math.min(ch.kw, settings.maxDc);
+        if(maxDc > 0){
+          var prev = 0, curve = settings.dcCurve;
+          for(var i=0;i<curve.length;i++){
+            var low = prev, high = curve[i].upTo; prev = high;
+            var lo = Math.max(soc, low), hi = Math.min(target, high);
+            if(hi > lo){
+              var power = maxDc * curve[i].factor;
+              var en = cap * (hi - lo) / 100;
+              segs.push({ lo:lo, hi:hi, power:power, hours:power>0?en/power:0 });
+            }
+          }
+        }
+      }
+    }
+    return { type:ch.type, soc:soc, target:target, segs:segs };
+  }
+  function chargingHours(){
+    return chargeSegments().segs.reduce(function(a,s){ return a + s.hours; }, 0);
+  }
+  // DC-Kurvenfaktor am gegebenen Ladestand
+  function dcFactorAt(soc){
+    var curve = settings.dcCurve;
+    for(var i = 0; i < curve.length; i++){ if(soc <= curve[i].upTo) return curve[i].factor; }
+    return curve[curve.length - 1].factor;
+  }
+  // Reichweite je Ladezeit (km/min & km/h): Session-Ø beim Nachladen, sonst Momentanwert
+  function chargeSpeed(){
+    var cons = currentConsumption();
+    if(!(cons > 0)) return { perMin: 0, perHour: 0 };
+    var soc = state.soc, target = currentTarget(), cap = settings.capacity;
+    var hours = chargingHours();
+    var kmGained = Math.max(0, cap * (target - soc) / 100) / cons * 100;
+    if(hours > 0 && kmGained > 0){
+      return { perHour: kmGained / hours, perMin: kmGained / (hours * 60) };
+    }
+    var ch = currentCharger(), p;
+    if(ch.type === "AC") p = Math.min(ch.kw, settings.maxAc);
+    else p = Math.min(ch.kw, settings.maxDc) * dcFactorAt(soc);
+    var perHour = p * 100 / cons;
+    return { perHour: perHour, perMin: perHour / 60 };
+  }
+  function fmtTime(h){
+    if(!isFinite(h) || h <= 0) return "–";
+    var mins = Math.round(h * 60);
+    if(mins < 1) return "< 1 min";
+    var hh = Math.floor(mins / 60), mm = mins % 60;
+    if(hh <= 0) return "ca. " + mm + " min";
+    return "ca. " + hh + " h " + (mm < 10 ? "0" + mm : mm) + " min";
+  }
+
+  // ---- Info-Grafik: Ladeleistung über Zeit (SVG, keine Bibliothek) ----
+  function niceCeil(v){
+    if(v <= 0) return 1;
+    var p = Math.pow(10, Math.floor(Math.log10(v))), n = v / p;
+    var s = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
+    return s * p;
+  }
+  function niceTimeStep(m){
+    var steps = [5,10,15,20,30,45,60,90,120,180,240,360];
+    for(var i=0;i<steps.length;i++){ if(m / steps[i] <= 5) return steps[i]; }
+    return 480;
+  }
+  function fmtAxisTotal(mins){
+    var m = Math.round(mins);
+    if(m < 60) return m + " min";
+    var h = Math.floor(m/60), mm = m % 60;
+    return h + " h " + (mm < 10 ? "0" + mm : mm) + " min";
+  }
+  function buildCurveSvg(segs){
+    var W = 300, H = 176, padL = 34, padR = 12, padT = 12, padB = 26;
+    var pw = W - padL - padR, ph = H - padT - padB;
+    var total = segs.reduce(function(a,s){ return a + s.hours * 60; }, 0);
+    var maxP = 1; segs.forEach(function(s){ if(s.power > maxP) maxP = s.power; });
+    var yMax = niceCeil(maxP), xMax = total > 0 ? total : 1;
+    function sx(m){ return padL + (m / xMax) * pw; }
+    function sy(k){ return padT + ph - (k / yMax) * ph; }
+    var ax = "#6a8792", grid = "#e3edf0", accent = "#0d9aac", accSoft = "rgba(13,154,172,.14)";
+    var el = [];
+    [0, yMax/2, yMax].forEach(function(k){
+      var y = sy(k);
+      el.push('<line x1="'+padL+'" y1="'+y.toFixed(1)+'" x2="'+(padL+pw)+'" y2="'+y.toFixed(1)+'" stroke="'+grid+'" stroke-width="1"/>');
+      el.push('<text x="'+(padL-5)+'" y="'+(y+3).toFixed(1)+'" text-anchor="end" font-size="9" fill="'+ax+'">'+Math.round(k)+'</text>');
+    });
+    // Y-Achsentitel (dezent, oben links)
+    el.push('<text x="'+padL+'" y="'+(padT-3)+'" text-anchor="start" font-size="8.5" fill="'+ax+'">Ladeleistung (kW)</text>');
+    // X-Ticks: automatisch verteilt, mit ausreichend Abstand zum Endtick
+    var step = niceTimeStep(xMax);
+    var xticks = [];
+    for(var t=0; t < xMax - step*0.5 + 0.001; t += step){ xticks.push(t); }
+    if(xticks.length === 0) xticks.push(0);
+    xticks.forEach(function(tk){
+      var x = sx(tk);
+      el.push('<line x1="'+x.toFixed(1)+'" y1="'+padT+'" x2="'+x.toFixed(1)+'" y2="'+(padT+ph)+'" stroke="'+grid+'" stroke-width="1"/>');
+      el.push('<text x="'+x.toFixed(1)+'" y="'+(padT+ph+13)+'" text-anchor="middle" font-size="9" fill="'+ax+'">'+Math.round(tk)+'</text>');
+    });
+    // letzter Tick = exakte Gesamtladezeit (inkl. Einheit)
+    var xEnd = sx(xMax);
+    el.push('<line x1="'+xEnd.toFixed(1)+'" y1="'+padT+'" x2="'+xEnd.toFixed(1)+'" y2="'+(padT+ph)+'" stroke="'+grid+'" stroke-width="1"/>');
+    el.push('<text x="'+xEnd.toFixed(1)+'" y="'+(padT+ph+13)+'" text-anchor="end" font-size="9" fill="'+ax+'">'+fmtAxisTotal(total)+'</text>');
+    var d = "", cum = 0, first = true;
+    segs.forEach(function(s){
+      var x0 = sx(cum), x1 = sx(cum + s.hours*60), y = sy(s.power);
+      d += (first ? ("M "+x0.toFixed(1)+" "+y.toFixed(1)) : (" L "+x0.toFixed(1)+" "+y.toFixed(1)));
+      d += " L "+x1.toFixed(1)+" "+y.toFixed(1);
+      first = false; cum += s.hours*60;
+    });
+    if(!first){
+      var area = d + " L "+sx(cum).toFixed(1)+" "+sy(0).toFixed(1)+" L "+sx(0).toFixed(1)+" "+sy(0).toFixed(1)+" Z";
+      el.push('<path d="'+area+'" fill="'+accSoft+'" stroke="none"/>');
+      el.push('<path d="'+d+'" fill="none" stroke="'+accent+'" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>');
+    }
+    el.push('<line x1="'+padL+'" y1="'+padT+'" x2="'+padL+'" y2="'+(padT+ph)+'" stroke="'+ax+'" stroke-width="1.2"/>');
+    el.push('<line x1="'+padL+'" y1="'+(padT+ph)+'" x2="'+(padL+pw)+'" y2="'+(padT+ph)+'" stroke="'+ax+'" stroke-width="1.2"/>');
+    return '<svg viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Ladeleistung über Zeit">'+el.join("")+'</svg>';
+  }
+  function openLzInfo(){
+    var data = chargeSegments();
+    $("lzStart").textContent = "Start " + Math.round(data.soc) + " %";
+    $("lzEnd").textContent = "Ziel " + Math.round(data.target) + " %";
+    $("lzAcNote").hidden = (data.type !== "AC") || !data.segs.length;
+    var graph = $("lzGraph"), segsBox = $("lzSegs"), total = $("lzTotal");
+    if(!data.segs.length){
+      graph.innerHTML = '<div class="lz-empty">Kein Ladevorgang – Ziel liegt nicht über dem aktuellen Stand.</div>';
+      segsBox.innerHTML = ""; total.innerHTML = "";
+    } else {
+      graph.innerHTML = buildCurveSvg(data.segs);
+      var mins = data.segs.reduce(function(a,s){ return a + s.hours*60; }, 0);
+      total.innerHTML = 'Gesamt: <b>' + fmtTime(mins/60) + '</b>';
+      segsBox.innerHTML = data.segs.map(function(s){
+        var dur = Math.max(1, Math.round(s.hours*60));
+        return '<div class="seg"><span class="s-range">'+Math.round(s.lo)+'–'+Math.round(s.hi)+' %</span>'+
+               '<span class="s-pow">ca. '+Math.round(s.power)+' kW · '+dur+' min</span></div>';
+      }).join("");
+    }
+    lzOverlay.classList.add("open");
+  }
+  function closeLzInfo(){ lzOverlay.classList.remove("open"); }
+
+  // ---- Fahrzeugdaten-Provider (Abstraktion; aktuell nur Mock/Demo) ----
+  // interface VehicleDataProvider { getVehicleStatus(): Promise<VehicleStatus> }
+  // VehicleStatus = { socPercent, rangeKm?, charging?, fetchedAt }
+  function MockVehicleDataProvider(){
+    this.getVehicleStatus = function(){
+      return new Promise(function(resolve){
+        setTimeout(function(){
+          resolve({ socPercent: 43, rangeKm: 270, charging: false, fetchedAt: new Date().toISOString() });
+        }, 700);
+      });
+    };
+  }
+  // Platzhalter für später: kennt NUR den eigenen sicheren Backend-Endpunkt – niemals Hyundai-Secrets im Browser.
+  function BackendVehicleDataProvider(endpoint){
+    this.endpoint = endpoint;
+    this.getVehicleStatus = function(){
+      return fetch(this.endpoint, { headers: { "Accept": "application/json" } })
+        .then(function(r){ if(!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+        .then(function(d){
+          return {
+            socPercent: Number(d.socPercent),
+            rangeKm: (d.rangeKm != null ? Number(d.rangeKm) : null),
+            charging: (d.charging != null ? !!d.charging : null),
+            fetchedAt: d.fetchedAt || new Date().toISOString()
+          };
+        });
+    };
+  }
+  function getVehicleProvider(){
+    if(settings.vehicleProviderMode === "backend" && settings.vehicleBackendUrl){
+      return new BackendVehicleDataProvider(settings.vehicleBackendUrl);
+    }
+    return new MockVehicleDataProvider();
+  }
+
+  var vehBusy = false, vehFlash = false, vehTimer = null;
+  function fmtClock(iso){
+    var d = iso ? new Date(iso) : new Date();
+    if(isNaN(d.getTime())) return "";
+    return ("0"+d.getHours()).slice(-2) + ":" + ("0"+d.getMinutes()).slice(-2);
+  }
+  function vehicleStatusText(){
+    if(state.socSource === "vehicle"){
+      var parts = ["vom Fahrzeug"];
+      if(state.vehicleRangeKm != null) parts.push(f_km(state.vehicleRangeKm) + " km");
+      if(state.vehicleOdometer != null) parts.push("km-Stand " + fmtOdo(state.vehicleOdometer));
+      else if(state.vehicleChargeTime) parts.push("noch " + state.vehicleChargeTime);
+      else if(state.vehicleFetchedAt) parts.push("aktualisiert " + fmtClock(state.vehicleFetchedAt));
+      return parts.join(" · ");
+    }
+    return "manuell";
+  }
+  function updateVehicleStatusLabel(){
+    var el = $("vehStatus"); el.className = "veh-status"; el.textContent = vehicleStatusText();
+  }
+  function setVehStatus(text, cls){
+    var el = $("vehStatus"); el.className = "veh-status" + (cls ? " " + cls : ""); el.textContent = text;
+  }
+  function flashVehStatus(text, cls){
+    vehFlash = true; setVehStatus(text, cls);
+    if(vehTimer) clearTimeout(vehTimer);
+    vehTimer = setTimeout(function(){ vehFlash = false; updateVehicleStatusLabel(); }, 2600);
+  }
+  function fetchFromVehicle(){
+    if(vehBusy || !settings.vehicleEnabled) return;
+    // Noch keine echte Fahrzeuganbindung: Wert NICHT verändern, nur kurzer Hinweis
+    if(settings.vehicleProviderMode !== "backend" || !settings.vehicleBackendUrl){
+      flashVehStatus("Fahrzeug-Abruf noch nicht verfügbar", "");
+      return;
+    }
+    vehBusy = true; vehFlash = true;
+    if(vehTimer) clearTimeout(vehTimer);
+    var btn = $("vehBtn");
+    btn.disabled = true; btn.classList.add("loading");
+    setVehStatus("Fahrzeug wird abgerufen …", "");
+    getVehicleProvider().getVehicleStatus().then(function(st){
+      var soc = Math.round(Number(st.socPercent));
+      if(!isFinite(soc)) throw new Error("ungültiger SoC");
+      soc = Math.max(0, Math.min(100, soc));
+      state.soc = soc;
+      state.socSource = "vehicle";
+      state.vehicleRangeKm = (st.rangeKm != null && isFinite(Number(st.rangeKm))) ? Number(st.rangeKm) : null;
+      state.vehicleFetchedAt = st.fetchedAt || new Date().toISOString();
+      render();
+      flashVehStatus("\u2713 Fahrzeugdaten aktualisiert \u00b7 " + soc + " % übernommen", "ok");
+    })["catch"](function(){
+      flashVehStatus("Fahrzeugdaten konnten nicht geladen werden", "err");
+    }).then(function(){
+      vehBusy = false; btn.disabled = false; btn.classList.remove("loading");
+    });
+  }
+
+  var $ = function(id){ return document.getElementById(id); };
+  var socSlider = $("socSlider");
+
+  // ---- Ladeleistungs-Strip einmalig aufbauen ----
+  function buildPowerChips(){
+    var wrap = $("powerChips");
+    wrap.innerHTML = "";
+    settings.chargers.forEach(function(c){ wrap.appendChild(makePill(c.id)); });
+    wrap.appendChild(makePill("individuell"));
+  }
+  function makePill(id){
+    var b = document.createElement("button");
+    b.className = "ppill"; b.type = "button"; b.setAttribute("data-cid", id);
+    return b;
+  }
+  function pillLabel(c){
+    if(/\d/.test(c.name)) return escHtml(c.name);
+    return escHtml(c.name) + ' <span class="pk">' + f_cons(c.kw) + '</span>';
+  }
+  function updatePills(){
+    document.querySelectorAll("#powerChips .ppill").forEach(function(b){
+      var id = b.getAttribute("data-cid");
+      if(id === "individuell"){ b.textContent = "Individuell"; }
+      else { var c = chargerById(id); if(c) b.innerHTML = pillLabel(c); }
+      b.classList.toggle("active", state.chargerMode === id);
+    });
+  }
+  function centerInStrip(wrap, el){
+    if(!wrap || !el) return;
+    var left = el.offsetLeft - (wrap.clientWidth - el.offsetWidth) / 2;
+    if(wrap.scrollTo){ wrap.scrollTo({ left:Math.max(0,left), behavior:"smooth" }); }
+    else { wrap.scrollLeft = Math.max(0,left); }
+  }
+  function centerActivePill(el){ centerInStrip($("powerChips"), el); }
+  function centerActiveTarget(el){ centerInStrip($("targetChips"), el); }
+
+  function render(){
+    document.body.classList.toggle("tc", !!settings.typeColors);
+    var cap = settings.capacity;
+    var cons = currentConsumption();
+    var soc = state.soc;
+
+    var energyNow = cap * soc / 100;
+    var rangeNow  = cons > 0 ? energyNow / cons * 100 : 0;
+
+    var target = currentTarget();
+    var energyTarget = cap * target / 100;
+    var rangeTarget  = cons > 0 ? energyTarget / cons * 100 : 0;
+    var nachzuladen  = Math.max(0, energyTarget - energyNow);
+    var below = target < soc;
+
+    var price = currentPrice();
+    var aufladepreis = nachzuladen * price;
+
+    // Zentrale Benziner-Kostenbasis (eine Quelle für alle Vergleiche)
+    var icePer100 = settings.benzinerverbrauch * settings.benzinpreis;  // €/100 km
+
+    var addRange = cons > 0 ? nachzuladen / cons * 100 : 0;
+    var benzinkosten = addRange / 100 * icePer100;
+    var ersparnis = benzinkosten - aufladepreis;
+
+    $("socBig").textContent = String(Math.round(soc));
+    socSlider.value = soc;
+    socSlider.style.setProperty("--fill", soc + "%");
+
+    // Fahrzeugverbindung: Button/Status ein-/ausblenden, Quelle anzeigen
+    $("vehBtn").hidden = !settings.vehicleEnabled;
+    $("vehStatus").hidden = !settings.vehicleEnabled;
+    if(settings.vehicleEnabled && !vehFlash) updateVehicleStatusLabel();
+
+    $("imAkku").textContent = f_kwh(energyNow);
+    $("verbrauchKpi").textContent = f_cons(cons);
+    $("reichweiteKpi").textContent = f_km(rangeNow);
+
+    ["sparsam","normal","autobahn","winter"].forEach(function(k){
+      var el = document.querySelector('[data-cval="'+k+'"]');
+      if(el) el.textContent = f_cons(settings.consumption[k]);
+    });
+    setActive("#consChips [data-cons]", "data-cons", state.consMode);
+
+    // aus-Kona-Block
+    var konaEl = $("konaVal");
+    if(isFinite(state.konaCons) && state.konaCons > 0){
+      konaEl.textContent = f_cons(state.konaCons) + " kWh/100 km";
+      konaEl.classList.remove("placeholder");
+    } else {
+      konaEl.textContent = "Reichweite eingeben";
+      konaEl.classList.add("placeholder");
+    }
+    $("konaBlock").classList.toggle("active", state.consMode === "kona");
+
+    $("targetBig").textContent = String(Math.round(target));
+    $("zielAkku").textContent = f_kwh(energyTarget);
+    $("nachzuladen").textContent = f_kwh(nachzuladen);
+    $("targetWarn").classList.toggle("show", below);
+
+    var socR = Math.round(soc);
+    document.querySelectorAll("#targetChips [data-target]").forEach(function(c){
+      var t = c.getAttribute("data-target");
+      if(t !== "ind"){
+        // Presets unterhalb des aktuellen Ladestands ausblenden
+        c.hidden = (parseInt(t, 10) < socR);
+      }
+      var on = state.targetIsCustom ? (t === "ind") : (t === String(state.targetSoc));
+      c.classList.toggle("active", on);
+    });
+
+    // Ladeleistung + Ladezeit
+    var hours = chargingHours();
+    var pc = $("powerCustom");
+    pc.hidden = (state.chargerMode !== "individuell");
+    document.querySelectorAll("#powerCustom .acdc button").forEach(function(b){
+      b.classList.toggle("active", b.getAttribute("data-ctype") === state.chargerCustomType);
+    });
+    updatePills();
+
+    // Preis
+    ["netz","pv100","pv50","unterwegs"].forEach(function(k){
+      var el = document.querySelector('[data-pval="'+k+'"]');
+      if(el) el.textContent = f_price(settings.prices[k]);
+    });
+    setActive("#priceChips [data-price]", "data-price", state.priceMode);
+
+    // Ergebnis-Infoleiste (Ziel-Reichweite · Ladezeit · Kosten)
+    $("sumRange").textContent = f_km(rangeTarget) + " km";
+    $("sumRangeAdd").textContent = "+" + f_km(cons > 0 ? nachzuladen / cons * 100 : 0) + " km";
+    $("sumTime").textContent  = fmtTime(hours);
+    $("sumCost").textContent  = f_eur(aufladepreis) + " €";
+
+    // Ladezeit + Ladekurven-Hinweis in der Ziel-Karte
+    $("ladezeitZiel").textContent = fmtTime(hours);
+    $("lzNote").textContent = (currentCharger().type === "DC") ? "inkl. Ladekurve" : "Schätzwert";
+    var sp = chargeSpeed();
+    $("lzRate").textContent = (sp.perHour > 0)
+      ? ("\u2248 " + fmt(sp.perMin, 1, 1) + " km/min \u00b7 " + f_km(sp.perHour) + " km/h")
+      : "\u2013";
+
+    if(nachzuladen <= 0){
+      $("saveNote").textContent = "nichts nachzuladen";
+    } else if(ersparnis >= 0){
+      $("saveNote").textContent = "ggü. Benziner spart ca. " + f_eur(ersparnis) + " €";
+    } else {
+      $("saveNote").textContent = "ggü. Benziner teurer um ca. " + f_eur(-ersparnis) + " €";
+    }
+
+    // Fahrkosten pro km / 100 km (unabhängig von SoC/Ziel) + Differenz zum Benziner
+    var evPer100 = price * cons;          // €/100 km E-Auto
+    var evPerKm  = evPer100 / 100;        // €/km E-Auto
+    var icePerKm = icePer100 / 100;       // €/km Benziner
+    $("costPerKm").textContent    = f_eur(evPerKm) + " €";
+    $("costPer100Km").textContent = f_eur(evPer100) + " €";
+    setDiff($("diffPerKm"),  evPerKm  - icePerKm);   // negativ = günstiger
+    setDiff($("diffPer100Km"), evPer100 - icePer100);
+    var benzTxt = f_eur(settings.benzinpreis);
+    document.querySelectorAll(".kmc-base-val").forEach(function(el){ el.textContent = benzTxt; });
+
+    save();
+  }
+
+  // Differenz E-Auto ggü. Benziner: negativ = günstiger, positiv = teurer
+  function setDiff(el, diff){
+    var sign = diff < 0 ? "\u2212" : (diff > 0 ? "+" : "");
+    el.textContent = sign + f_eur(Math.abs(diff)) + " € ggü. Benz.";
+    el.className = "kmc-diff" + (diff < 0 ? " save" : (diff > 0 ? " more" : ""));
+  }
+
+  function setActive(sel, attr, mode){
+    document.querySelectorAll(sel).forEach(function(c){
+      c.classList.toggle("active", c.getAttribute(attr) === mode);
+    });
+  }
+
+  // ---- Events Hauptscreen ----
+  socSlider.addEventListener("input", function(){
+    state.soc = parseInt(socSlider.value, 10) || 0;
+    state.socSource = "manual";
+    render();
+  });
+  $("vehBtn").addEventListener("click", fetchFromVehicle);
+
+  $("consChips").addEventListener("click", function(e){
+    var chip = e.target.closest("[data-cons]"); if(!chip) return;
+    state.consMode = chip.getAttribute("data-cons");
+    if(state.consMode === "individuell"){ $("consCustom").focus(); }
+    render();
+  });
+  $("consCustom").addEventListener("input", function(){
+    state.consMode = "individuell"; state.consCustom = this.value; render();
+  });
+
+  $("targetChips").addEventListener("click", function(e){
+    var chip = e.target.closest("[data-target]"); if(!chip) return;
+    var t = chip.getAttribute("data-target");
+    if(t === "ind"){ state.targetIsCustom = true; $("targetCustom").focus(); }
+    else { state.targetIsCustom = false; state.targetSoc = parseInt(t, 10); }
+    render();
+    centerActiveTarget(chip);
+  });
+  $("targetCustom").addEventListener("input", function(){
+    state.targetIsCustom = true; state.targetCustom = this.value; render();
+  });
+
+  $("powerChips").addEventListener("click", function(e){
+    var b = e.target.closest(".ppill"); if(!b) return;
+    state.chargerMode = b.getAttribute("data-cid");
+    if(state.chargerMode === "individuell"){ $("chargerCustomKw").focus(); }
+    render();
+    centerActivePill(b);
+  });
+  $("chargerCustomKw").addEventListener("input", function(){
+    state.chargerMode = "individuell"; state.chargerCustomKw = this.value; render();
+  });
+  $("powerCustom").addEventListener("click", function(e){
+    var b = e.target.closest("[data-ctype]"); if(!b) return;
+    state.chargerMode = "individuell";
+    state.chargerCustomType = b.getAttribute("data-ctype");
+    render();
+  });
+
+  var lzOverlay = $("lzOverlay");
+  document.querySelectorAll(".js-lz").forEach(function(b){ b.addEventListener("click", openLzInfo); });
+  $("lzClose").addEventListener("click", closeLzInfo);
+  lzOverlay.addEventListener("click", function(e){ if(e.target === lzOverlay) closeLzInfo(); });
+
+  // ---- Benzinpreis-Schnelleditor (zentrale Einstellung) ----
+  var benzOverlay = $("benzOverlay");
+  function openBenzEdit(){
+    var i = $("benzInput");
+    i.value = fmt(settings.benzinpreis, 2, 2);
+    i.style.borderColor = "";
+    benzOverlay.classList.add("open");
+    // iOS: Fokus MUSS synchron innerhalb der Tap-Geste erfolgen, sonst erscheint keine Tastatur
+    i.focus();
+    if(i.select) i.select();
+  }
+  function closeBenzEdit(){ benzOverlay.classList.remove("open"); }
+  function applyBenzEdit(){
+    var v = pg($("benzInput").value);
+    if(isFinite(v) && v >= 0){
+      settings.benzinpreis = v;                 // eine zentrale Quelle
+      var f = $("setBenzin"); if(f) f.value = fmt(v, 2, 2);  // Einstellungsfeld synchron
+      render();                                 // aktualisiert alle Benziner-Vergleiche + speichert
+      closeBenzEdit();
+    } else {
+      $("benzInput").style.borderColor = "var(--warn)";
+    }
+  }
+  $("benzApply").addEventListener("click", applyBenzEdit);
+  $("benzCancel").addEventListener("click", closeBenzEdit);
+  $("benzClose").addEventListener("click", closeBenzEdit);
+  benzOverlay.addEventListener("click", function(e){ if(e.target === benzOverlay) closeBenzEdit(); });
+  $("benzInput").addEventListener("keydown", function(e){ if(e.key === "Enter") applyBenzEdit(); });
+  document.querySelectorAll(".kmc").forEach(function(c){
+    c.addEventListener("click", openBenzEdit);
+    c.addEventListener("keydown", function(e){ if(e.key === "Enter" || e.key === " "){ e.preventDefault(); openBenzEdit(); } });
+  });
+  $("saveNote").addEventListener("click", openBenzEdit);
+
+  // ---- Verbrauch aus Kona-Reichweite (manuell oder per Screenshot-OCR) ----
+  var konaOverlay = $("konaOverlay");
+  var konaSheetSoc = 0, konaFromScreenshot = false, konaOdo = null, konaTimeStr = null;
+  function fmtOdo(km){ return new Intl.NumberFormat("de-DE",{maximumFractionDigits:0}).format(km) + " km"; }
+  function konaLivePreview(){
+    var c = konaConsFrom($("konaRangeInput").value, konaSheetSoc);
+    $("konaResult").textContent = (isFinite(c) && c > 0) ? (f_cons(c) + " kWh/100 km") : "–";
+  }
+  function setKonaOcr(text, cls){
+    var el = $("konaOcr"); el.hidden = false; el.className = "kona-ocr" + (cls ? " " + cls : ""); el.textContent = text;
+  }
+  function openKonaEdit(){
+    konaSheetSoc = state.soc; konaFromScreenshot = false; konaOdo = null; konaTimeStr = null;
+    $("konaSocLbl").textContent = Math.round(state.soc) + " %";
+    $("konaRangeInput").value = state.konaRange || "";
+    $("konaRangeInput").style.borderColor = "";
+    $("konaOcr").hidden = true;
+    konaLivePreview();
+    konaOverlay.classList.add("open");
+    var i = $("konaRangeInput"); i.focus(); if(i.select) i.select();
+  }
+  function closeKonaEdit(){ konaOverlay.classList.remove("open"); }
+  function applyKonaEdit(){
+    var c = konaConsFrom($("konaRangeInput").value, konaSheetSoc);
+    if(isFinite(c) && c > 0){
+      if(konaFromScreenshot){
+        state.soc = Math.max(0, Math.min(100, Math.round(konaSheetSoc)));
+        state.socSource = "vehicle";
+        state.vehicleFetchedAt = new Date().toISOString();
+        state.vehicleRangeKm = pg($("konaRangeInput").value);
+        state.vehicleOdometer = (konaOdo != null) ? konaOdo : null;
+        state.vehicleChargeTime = konaTimeStr || null;
+      }
+      state.konaCons = c;
+      state.konaRange = $("konaRangeInput").value;
+      state.consMode = "kona";
+      render();
+      closeKonaEdit();
+    } else {
+      $("konaRangeInput").style.borderColor = "var(--warn)";
+    }
+  }
+  $("konaRangeInput").addEventListener("input", function(){ this.style.borderColor = ""; konaLivePreview(); });
+  $("konaRangeInput").addEventListener("keydown", function(e){ if(e.key === "Enter") applyKonaEdit(); });
+  $("konaApply").addEventListener("click", applyKonaEdit);
+  $("konaCancel").addEventListener("click", closeKonaEdit);
+  $("konaClose").addEventListener("click", closeKonaEdit);
+  konaOverlay.addEventListener("click", function(e){ if(e.target === konaOverlay) closeKonaEdit(); });
+  $("konaEdit").addEventListener("click", function(e){ e.stopPropagation(); openKonaEdit(); });
+  $("konaBlock").addEventListener("click", function(){
+    if(isFinite(state.konaCons) && state.konaCons > 0){ state.consMode = "kona"; render(); }
+    else { openKonaEdit(); }
+  });
+
+  // ---- Screenshot-Erkennung via Claude Vision: SoC + Reichweite + km-Stand/Ladezeit ----
+  function fileToBase64(file){
+    return new Promise(function(resolve, reject){
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function(){
+        try{
+          var maxDim = 1100;
+          var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+          var scale = Math.min(1, maxDim / Math.max(w, h));
+          var cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
+          var c = document.createElement("canvas"); c.width = cw; c.height = ch;
+          c.getContext("2d").drawImage(img, 0, 0, cw, ch);
+          URL.revokeObjectURL(url);
+          var dataUrl = c.toDataURL("image/jpeg", 0.85);
+          resolve({ data: dataUrl.substring(dataUrl.indexOf(",") + 1), mediaType: "image/jpeg" });
+        } catch(e){ URL.revokeObjectURL(url); reject(new Error("Bild-Verarbeitung fehlgeschlagen")); }
+      };
+      img.onerror = function(){ URL.revokeObjectURL(url); reject(new Error("Bild nicht lesbar")); };
+      img.src = url;
+    });
+  }
+  function normalizeTime(s){
+    if(!s) return null;
+    s = String(s);
+    var m = s.match(/(\d{1,2})\s*h\s*(\d{1,2})\s*m/i);
+    if(m){ var mm = m[2]; return parseInt(m[1], 10) + " h " + (mm.length < 2 ? "0" + mm : mm) + " min"; }
+    var mo = s.match(/(\d{1,3})\s*m/i);
+    if(mo) return parseInt(mo[1], 10) + " min";
+    var ho = s.match(/(\d{1,2})\s*h/i);
+    if(ho) return parseInt(ho[1], 10) + " h";
+    return null;
+  }
+  function recognizeViaClaude(base64, mediaType){
+    var headers = { "Content-Type": "application/json" };
+    var key = settings.anthropicKey && settings.anthropicKey.trim();
+    if(key){
+      headers["x-api-key"] = key;
+      headers["anthropic-version"] = "2023-06-01";
+      headers["anthropic-dangerous-direct-browser-access"] = "true";
+    }
+    var model = "claude-sonnet-5";
+    var prompt = "Dies ist ein Screenshot der Hyundai-Kona-App. Lies exakt aus: "
+      + "soc = Zahl vor dem %-Zeichen (Ladestand). "
+      + "range = erste km-Zahl (Reichweite). "
+      + "odo = zweite km-Zahl falls vorhanden (km-Stand des Autos, meist 5-6-stellig), sonst null. "
+      + "time = verbleibende Ladezeit falls vorhanden (z.B. '14h 30min'), sonst null. "
+      + "Antworte NUR mit reinem JSON ohne Markdown: "
+      + '{"soc":Zahl|null,"range":Zahl|null,"odo":Zahl|null,"time":Text|null}. '
+      + "Zahlen ohne Tausenderpunkte/Leerzeichen.";
+    return fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify({
+        model: model,
+        max_tokens: 1000,
+        messages: [{ role: "user", content: [
+          { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
+          { type: "text", text: prompt }
+        ]}]
+      })
+    }).then(function(r){ if(!r.ok) throw new Error("API-Status " + r.status); return r.json(); })
+    .then(function(d){
+      var txt = (d.content || []).filter(function(x){ return x.type === "text"; }).map(function(x){ return x.text; }).join("");
+      txt = txt.replace(/```json|```/g, "").trim();
+      var o = JSON.parse(txt);
+      var num = function(v){ return (v != null && isFinite(Number(v))) ? Number(v) : null; };
+      var soc = num(o.soc), range = num(o.range), odo = num(o.odo);
+      return {
+        soc: soc != null ? Math.max(0, Math.min(100, Math.round(soc))) : null,
+        range: range != null ? Math.round(range) : null,
+        odo: odo != null ? Math.round(odo) : null,
+        konaTime: normalizeTime(o.time)
+      };
+    });
+  }
+  function applyOcrToSheet(p){
+    var bits = [];
+    if(p.soc != null){ konaSheetSoc = p.soc; konaFromScreenshot = true; $("konaSocLbl").textContent = p.soc + " %"; bits.push(p.soc + " %"); }
+    if(p.range != null){ $("konaRangeInput").value = String(p.range); bits.push(p.range + " km"); }
+    if(p.odo != null){ konaOdo = p.odo; bits.push("km-Stand " + fmtOdo(p.odo)); }
+    if(p.konaTime){ konaTimeStr = p.konaTime; bits.push("noch " + p.konaTime); }
+    konaLivePreview();
+    if(bits.length){ setKonaOcr("Erkannt: " + bits.join(" · ") + " – bitte prüfen und übernehmen.", "ok"); }
+    else { setKonaOcr("Nichts erkannt – bitte Werte manuell eingeben.", "err"); }
+  }
+  function handleScreenshot(fileOrBlob){
+    setKonaOcr("Screenshot wird gelesen …", "loading");
+    fileToBase64(fileOrBlob).then(function(b){
+      return recognizeViaClaude(b.data, b.mediaType);
+    }).then(function(parsed){
+      applyOcrToSheet(parsed);
+    })["catch"](function(err){
+      var msg = (err && err.message) ? err.message : "Fehler";
+      var hint = /Failed to fetch|NetworkError|Load failed/i.test(msg)
+        ? "Netzwerk blockiert – in der Claude-App-Vorschau nicht möglich. Bitte auf der veröffentlichten Seite testen."
+        : "Bitte Werte manuell eingeben.";
+      setKonaOcr("Konnte nicht gelesen werden (" + msg + "). " + hint, "err");
+    });
+  }
+  $("konaShot").addEventListener("click", function(){ $("konaFile").click(); });
+  $("konaFile").addEventListener("change", function(){
+    var f = this.files && this.files[0];
+    if(f) handleScreenshot(f);
+    this.value = "";
+  });
+  document.addEventListener("paste", function(e){
+    if(!konaOverlay.classList.contains("open")) return;
+    var items = e.clipboardData && e.clipboardData.items;
+    if(!items) return;
+    for(var i = 0; i < items.length; i++){
+      if(items[i].type && items[i].type.indexOf("image") === 0){
+        var blob = items[i].getAsFile();
+        if(blob){ e.preventDefault(); handleScreenshot(blob); return; }
+      }
+    }
+  });
+
+  // ---- Was-wäre-wenn: Skalen-Sandbox mit bidirektionaler Kopplung ----
+  var wifOverlay = $("wifOverlay");
+  var wif = null, wifSeed = null;
+  var WIF = {
+    strom:  { min:0,  max:1,    fmt:function(v){ return f_price(v) + " €/kWh"; } },
+    benzin: { min:1,  max:3,    fmt:function(v){ return f_eur(v) + " €/l"; } },
+    verb:   { min:8,  max:30,   fmt:function(v){ return f_cons(v) + " kWh"; } },
+    power:  { min:1.6,max:80,   fmt:function(v){ return (v < 2 ? f_cons(v) : String(Math.round(v))) + " kW"; } },
+    ziel:   { min:0,  max:100,  fmt:function(v){ return Math.round(v) + " %"; } },
+    rw:     { min:0,  max:600,  fmt:function(v){ return f_km(v) + " km"; } },
+    addkm:  { min:0,  max:400,  fmt:function(v){ return "+" + f_km(v) + " km"; } },
+    preis:  { min:0,  max:40,   fmt:function(v){ return f_eur(v) + " €"; } },
+    zeit:   { min:0,  max:2160, fmt:function(v){ return fmtTime(v/60); } },
+    spar:   { min:-20,max:80,   fmt:function(v){ return (v>=0?"+":"\u2212") + f_eur(Math.abs(v)) + " €"; } }
+  };
+  function wifEnergy(){ return Math.max(0, wif.cap * (wif.ziel - wif.soc) / 100); }
+  // Ladedauer im Sheet mit derselben Logik wie vorne: AC linear, DC über die Ladekurve
+  function wifChargeHours(){
+    var E = wifEnergy();
+    if(E <= 0) return 0;
+    if(wif.ladestaerke <= 22){                 // AC
+      var effAc = Math.min(wif.ladestaerke, settings.maxAc);
+      return effAc > 0 ? E / effAc : 0;
+    }
+    var maxDc = Math.min(wif.ladestaerke, settings.maxDc);   // DC
+    if(maxDc <= 0) return 0;
+    var hours = 0, prev = 0, curve = settings.dcCurve;
+    for(var i=0;i<curve.length;i++){
+      var lo = Math.max(wif.soc, prev), hi = Math.min(wif.ziel, curve[i].upTo); prev = curve[i].upTo;
+      if(hi > lo){ var p = maxDc * curve[i].factor; var en = wif.cap * (hi - lo) / 100; if(p > 0) hours += en / p; }
+    }
+    return hours;
+  }
+  // Kurven-Kennzahl K = Σ EnergieAbschnitt / Faktor  (für die Umkehrung Ladedauer -> Ladestärke)
+  function wifDcK(){
+    var K = 0, prev = 0, curve = settings.dcCurve;
+    for(var i=0;i<curve.length;i++){
+      var lo = Math.max(wif.soc, prev), hi = Math.min(wif.ziel, curve[i].upTo); prev = curve[i].upTo;
+      if(hi > lo){ var en = wif.cap * (hi - lo) / 100; K += en / curve[i].factor; }
+    }
+    return K;
+  }
+  // Ziel-Ladestand, der bei fester Ladestärke die gegebene Ladedauer ergibt
+  function wifZielForTime(P, T){
+    if(T <= 0) return wif.soc;
+    if(P <= 22){                                   // AC linear
+      var eff = Math.min(P, settings.maxAc);
+      if(eff <= 0) return wif.soc;
+      return Math.min(100, wif.soc + T * eff * 100 / wif.cap);
+    }
+    var mp = Math.min(P, settings.maxDc);          // DC über die Ladekurve
+    if(mp <= 0) return wif.soc;
+    var acc = 0, prev = 0, curve = settings.dcCurve;
+    for(var i=0;i<curve.length;i++){
+      var low = prev, high = curve[i].upTo; prev = high;
+      var lo = Math.max(wif.soc, low);
+      if(lo >= high) continue;
+      var tPerPct = (wif.cap / 100) / (mp * curve[i].factor);   // Stunden je %-Punkt
+      var segTime = (high - lo) * tPerPct;
+      if(acc + segTime >= T) return Math.min(100, lo + (T - acc) / tPerPct);
+      acc += segTime;
+    }
+    return 100;
+  }
+  function wifCalc(){
+    var E = wifEnergy();
+    var rw = wif.verbrauch > 0 ? wif.cap * wif.ziel / wif.verbrauch : 0;
+    var preis = E * wif.strompreis;
+    var zeit = wifChargeHours();   // Stunden, inkl. DC-Ladekurve
+    var gk = wif.verbrauch > 0 ? E / wif.verbrauch * 100 : 0;
+    var spar = gk / 100 * wif.bv * wif.benzinpreis - preis;
+    return { E:E, rw:rw, addkm:gk, preis:preis, zeit:zeit, spar:spar };
+  }
+  function wifSet(id, labelId, value, spec){
+    if(!isFinite(value)) value = spec.min;
+    var v = Math.max(spec.min, Math.min(spec.max, value));
+    var el = $(id);
+    el.value = v;
+    el.style.setProperty("--fill", ((v - spec.min) / (spec.max - spec.min) * 100) + "%");
+    $(labelId).textContent = spec.fmt(value);
+  }
+  function wifRender(){
+    var c = wifCalc();
+    // Ziel-Sperre: nie unter Ist-Ladestand
+    WIF.ziel.min = Math.round(wif.soc);
+    $("wifZiel").min = WIF.ziel.min;
+    wifSet("wifStrom", "wifStromV", wif.strompreis, WIF.strom);
+    wifSet("wifBenzin", "wifBenzinV", wif.benzinpreis, WIF.benzin);
+    wifSet("wifVerb", "wifVerbV", wif.verbrauch, WIF.verb);
+    wifSet("wifPower", "wifPowerV", wif.ladestaerke, WIF.power);
+    wifSet("wifZiel", "wifZielV", wif.ziel, WIF.ziel);
+    wifSet("wifRw", "wifRwV", c.rw, WIF.rw);
+    wifSet("wifAdd", "wifAddV", c.addkm, WIF.addkm);
+    wifSet("wifPreis", "wifPreisV", c.preis, WIF.preis);
+    wifSet("wifZeit", "wifZeitV", c.zeit * 60, WIF.zeit);
+    wifSet("wifSpar", "wifSparV", c.spar, WIF.spar);
+    $("wifSparV").style.color = c.spar < 0 ? "var(--warn)" : "";
+  }
+  function openWif(){
+    wif = {
+      soc: state.soc, cap: settings.capacity, bv: settings.benzinerverbrauch,
+      strompreis: currentPrice(), benzinpreis: settings.benzinpreis,
+      verbrauch: currentConsumption(),
+      ladestaerke: Math.max(1.6, Math.min(80, currentCharger().kw)),
+      ziel: currentTarget()
+    };
+    if(wif.ziel < wif.soc) wif.ziel = wif.soc;
+    wifSeed = clone(wif);
+    // erst sichtbar machen, dann Regler befüllen (korrekte Thumb-Position auch bei feinen Skalen)
+    wifOverlay.classList.add("open");
+    $("wifSoc").value = Math.round(wif.soc);
+    $("wifCap").textContent = f_cons(wif.cap);
+    wifRender();
+  }
+  function closeWif(){ wifOverlay.classList.remove("open"); }
+  function resetWif(){ if(wifSeed){ wif = clone(wifSeed); if(wif.ziel < wif.soc) wif.ziel = wif.soc; $("wifSoc").value = Math.round(wif.soc); wifRender(); } }
+  function applyWif(){
+    settings.benzinpreis = wif.benzinpreis;
+    var sb = $("setBenzin"); if(sb) sb.value = fmt(settings.benzinpreis, 2, 2);
+    state.priceMode = "individuell"; state.priceCustom = fmt(wif.strompreis, 2, 2); $("priceCustom").value = state.priceCustom;
+    state.consMode = "individuell"; state.consCustom = fmt(wif.verbrauch, 0, 1); $("consCustom").value = state.consCustom;
+    state.soc = Math.max(0, Math.min(100, Math.round(wif.soc))); state.socSource = "manual";
+    state.targetIsCustom = true; state.targetCustom = String(Math.round(wif.ziel)); $("targetCustom").value = state.targetCustom;
+    state.chargerMode = "individuell"; state.chargerCustomKw = fmt(wif.ladestaerke, 0, 1);
+    state.chargerCustomType = wif.ladestaerke > 22 ? "DC" : "AC"; $("chargerCustomKw").value = state.chargerCustomKw;
+    render();
+    closeWif();
+  }
+  // Ist-Ladestand editierbar (nachrichtlich, sperrt das Ziel)
+  $("wifSoc").addEventListener("input", function(){
+    var v = pg(this.value);
+    if(isFinite(v)){ wif.soc = Math.max(0, Math.min(100, v)); if(wif.ziel < wif.soc) wif.ziel = wif.soc; wifRender(); }
+  });
+  // Stellgrößen direkt
+  $("wifStrom").addEventListener("input", function(){ wif.strompreis = parseFloat(this.value); wifRender(); });
+  $("wifBenzin").addEventListener("input", function(){ wif.benzinpreis = parseFloat(this.value); wifRender(); });
+  $("wifVerb").addEventListener("input", function(){ wif.verbrauch = parseFloat(this.value); wifRender(); });
+  // Ladestärke & Ziel: Rasten auf bekannte Schritte
+  var WIF_ZIEL_STEPS = [25,30,40,50,60,70,80,90,100];
+  function wifSnap(value, steps, dist){
+    var best = null, bd = Infinity;
+    for(var i=0;i<steps.length;i++){ var d = Math.abs(value - steps[i]); if(d < bd){ bd = d; best = steps[i]; } }
+    return (best != null && bd <= dist) ? best : value;
+  }
+  $("wifPower").addEventListener("input", function(){
+    var steps = settings.chargers.map(function(c){ return c.kw; });
+    wif.ladestaerke = Math.max(1.6, Math.min(80, wifSnap(parseFloat(this.value), steps, 1.2)));
+    wifRender();
+  });
+  $("wifZiel").addEventListener("input", function(){
+    wif.ziel = Math.max(wif.soc, wifSnap(parseFloat(this.value), WIF_ZIEL_STEPS, 2));
+    wifRender();
+  });
+  // Ergebnisse invers -> gekoppelte Stellgröße
+  $("wifRw").addEventListener("input", function(){
+    var rw = parseFloat(this.value);
+    if(wif.verbrauch > 0) wif.ziel = Math.max(wif.soc, Math.min(100, rw * wif.verbrauch / wif.cap));
+    wifRender();
+  });
+  $("wifAdd").addEventListener("input", function(){
+    var km = parseFloat(this.value);
+    if(wif.verbrauch > 0) wif.ziel = Math.max(wif.soc, Math.min(100, wif.soc + km * wif.verbrauch / wif.cap));
+    wifRender();
+  });
+  $("wifPreis").addEventListener("input", function(){
+    var lp = parseFloat(this.value), E = wifEnergy();
+    if(E > 0) wif.strompreis = Math.max(0, Math.min(1, lp / E));
+    wifRender();
+  });
+  $("wifZeit").addEventListener("input", function(){
+    // Ladestärke bleibt fix – stattdessen ändert sich der Ziel-Ladestand (und damit +km)
+    var T = parseFloat(this.value) / 60;
+    wif.ziel = Math.max(wif.soc, Math.min(100, wifZielForTime(wif.ladestaerke, T)));
+    wifRender();
+  });
+  $("wifSpar").addEventListener("input", function(){
+    var sp = parseFloat(this.value), E = wifEnergy();
+    var gk = wif.verbrauch > 0 ? E / wif.verbrauch * 100 : 0, lp = E * wif.strompreis;
+    if(gk > 0 && wif.bv > 0) wif.benzinpreis = Math.max(1, Math.min(3, (sp + lp) / (gk / 100 * wif.bv)));
+    wifRender();
+  });
+  $("wifOpen").addEventListener("click", openWif);
+  $("wifClose").addEventListener("click", closeWif);
+  $("wifReset").addEventListener("click", resetWif);
+  $("wifApply").addEventListener("click", applyWif);
+  wifOverlay.addEventListener("click", function(e){ if(e.target === wifOverlay) closeWif(); });
+
+  $("priceChips").addEventListener("click", function(e){
+    var chip = e.target.closest("[data-price]"); if(!chip) return;
+    state.priceMode = chip.getAttribute("data-price");
+    if(state.priceMode === "individuell"){ $("priceCustom").focus(); }
+    render();
+  });
+  $("priceCustom").addEventListener("input", function(){
+    state.priceMode = "individuell"; state.priceCustom = this.value; render();
+  });
+
+  // ---- Einstellungen: Skalare ----
+  var overlay = $("overlay");
+  var setMap = {
+    setCap:      { get:function(){return settings.capacity;}, set:function(v){settings.capacity=v;}, min:0.1, dec:1 },
+    setMaxAc:    { get:function(){return settings.maxAc;}, set:function(v){settings.maxAc=v;}, min:0.1, dec:1 },
+    setMaxDc:    { get:function(){return settings.maxDc;}, set:function(v){settings.maxDc=v;}, min:0.1, dec:1 },
+    setBenzin:   { get:function(){return settings.benzinpreis;}, set:function(v){settings.benzinpreis=v;}, min:0.01, dec:2 },
+    setBenzinV:  { get:function(){return settings.benzinerverbrauch;}, set:function(v){settings.benzinerverbrauch=v;}, min:0.1, dec:1 },
+    setNetz:     { get:function(){return settings.prices.netz;}, set:function(v){settings.prices.netz=v;}, min:0, dec:2 },
+    setPv100:    { get:function(){return settings.prices.pv100;}, set:function(v){settings.prices.pv100=v;}, min:0, dec:2 },
+    setPv50:     { get:function(){return settings.prices.pv50;}, set:function(v){settings.prices.pv50=v;}, min:0, dec:2 },
+    setUnterwegs:{ get:function(){return settings.prices.unterwegs;}, set:function(v){settings.prices.unterwegs=v;}, min:0, dec:2 },
+    setSparsam:  { get:function(){return settings.consumption.sparsam;}, set:function(v){settings.consumption.sparsam=v;}, min:0.1, dec:1 },
+    setNormal:   { get:function(){return settings.consumption.normal;}, set:function(v){settings.consumption.normal=v;}, min:0.1, dec:1 },
+    setAutobahn: { get:function(){return settings.consumption.autobahn;}, set:function(v){settings.consumption.autobahn=v;}, min:0.1, dec:1 },
+    setWinter:   { get:function(){return settings.consumption.winter;}, set:function(v){settings.consumption.winter=v;}, min:0.1, dec:1 }
+  };
+  function fillSettingsInputs(){
+    Object.keys(setMap).forEach(function(id){
+      var cfg = setMap[id]; $(id).value = fmt(cfg.get(), 0, cfg.dec);
+    });
+    $("setVehEnabled").checked = !!settings.vehicleEnabled;
+    $("setTypeColors").checked = !!settings.typeColors;
+    $("setAnthropicKey").value = settings.anthropicKey || "";
+    fillDefaultChargerSelect();
+  }
+  function fillDefaultChargerSelect(){
+    var sel = $("setDefaultCharger");
+    sel.innerHTML = settings.chargers.map(function(c){
+      return '<option value="'+escAttr(c.id)+'">'+escHtml(c.name)+' ('+f_cons(c.kw)+' kW)</option>';
+    }).join("");
+    sel.value = settings.defaultCharger;
+    if(!sel.value && settings.chargers[0]) sel.value = settings.chargers[0].id;
+  }
+  $("setDefaultCharger").addEventListener("change", function(){
+    settings.defaultCharger = this.value;
+    state.chargerMode = this.value;   // sofort anwenden
+    render();
+    var b = document.querySelector('#powerChips .ppill.active');
+    if(b) centerActivePill(b);
+  });
+  Object.keys(setMap).forEach(function(id){
+    $(id).addEventListener("input", function(){
+      var cfg = setMap[id]; var v = pg(this.value);
+      if(isFinite(v) && v >= cfg.min){ cfg.set(v); render(); }
+    });
+  });
+  $("setVehEnabled").addEventListener("change", function(){
+    settings.vehicleEnabled = this.checked;
+    render();
+  });
+  $("setTypeColors").addEventListener("change", function(){
+    settings.typeColors = this.checked;
+    render();
+  });
+  $("setAnthropicKey").addEventListener("input", function(){
+    settings.anthropicKey = this.value.trim();
+    save();
+  });
+
+  // ---- Einstellungen: Ladeleistung-Presets ----
+  function rebuildChargerSettings(){
+    var box = $("chargerSettings"); box.innerHTML = "";
+    settings.chargers.forEach(function(ch, idx){
+      var row = document.createElement("div");
+      row.className = "crow"; row.setAttribute("data-idx", idx);
+      row.innerHTML =
+        '<input class="cname" value="'+escAttr(ch.name)+'" aria-label="Bezeichnung">'+
+        '<input class="ckw" inputmode="decimal" value="'+fmt(ch.kw,0,2)+'" aria-label="Ladeleistung"><span class="cunit">kW</span>'+
+        '<div class="acdc">'+
+          '<button type="button" data-t="AC" class="'+(ch.type==="AC"?"active":"")+'">AC</button>'+
+          '<button type="button" data-t="DC" class="'+(ch.type==="DC"?"active":"")+'">DC</button>'+
+        '</div>';
+      box.appendChild(row);
+    });
+  }
+  $("chargerSettings").addEventListener("input", function(e){
+    var row = e.target.closest(".crow"); if(!row) return;
+    var i = parseInt(row.getAttribute("data-idx"), 10);
+    if(e.target.classList.contains("cname")){ settings.chargers[i].name = e.target.value; }
+    else if(e.target.classList.contains("ckw")){ var v = pg(e.target.value); if(isFinite(v) && v > 0) settings.chargers[i].kw = v; }
+    render();
+  });
+  $("chargerSettings").addEventListener("click", function(e){
+    var btn = e.target.closest(".acdc button"); if(!btn) return;
+    var row = e.target.closest(".crow"); var i = parseInt(row.getAttribute("data-idx"), 10);
+    settings.chargers[i].type = btn.getAttribute("data-t");
+    row.querySelectorAll(".acdc button").forEach(function(b){ b.classList.toggle("active", b === btn); });
+    render();
+  });
+
+  // ---- Einstellungen: DC-Ladekurve (erweitert) ----
+  function rebuildCurveSettings(){
+    var box = $("curveSettings"); box.innerHTML = "";
+    var prev = 0;
+    settings.dcCurve.forEach(function(seg, idx){
+      var row = document.createElement("div");
+      row.className = "crow"; row.setAttribute("data-idx", idx);
+      row.innerHTML =
+        '<label>'+prev+'–'+seg.upTo+' %</label>'+
+        '<input class="cfac" inputmode="numeric" value="'+Math.round(seg.factor*100)+'" aria-label="Leistungsanteil"><span class="cunit">%</span>';
+      box.appendChild(row); prev = seg.upTo;
+    });
+  }
+  $("curveSettings").addEventListener("input", function(e){
+    if(!e.target.classList.contains("cfac")) return;
+    var row = e.target.closest(".crow"); var i = parseInt(row.getAttribute("data-idx"), 10);
+    var v = pg(e.target.value);
+    if(isFinite(v) && v > 0){ settings.dcCurve[i].factor = Math.min(2, v/100); render(); }
+  });
+
+  function rebuildSettings(){
+    fillSettingsInputs();
+    rebuildChargerSettings();
+    rebuildCurveSettings();
+  }
+
+  function openModal(){ rebuildSettings(); overlay.classList.add("open"); }
+  function closeModal(){ overlay.classList.remove("open"); render(); }
+  $("gearBtn").addEventListener("click", openModal);
+  $("closeBtn").addEventListener("click", closeModal);
+  overlay.addEventListener("click", function(e){ if(e.target === overlay) closeModal(); });
+  $("resetBtn").addEventListener("click", function(){
+    settings = clone(DEFAULTS);
+    rebuildSettings();
+    render();
+  });
+
+  // ---- Init ----
+  buildPowerChips();
+  $("consCustom").value = state.consCustom;
+  $("priceCustom").value = state.priceCustom;
+  $("targetCustom").value = state.targetCustom;
+  $("chargerCustomKw").value = state.chargerCustomKw;
+  render();
+  requestAnimationFrame(function(){
+    var a = document.querySelector("#powerChips .ppill.active");
+    if(a) centerActivePill(a);
+    var tgt = document.querySelector("#targetChips .tchip.active");
+    if(tgt) centerActiveTarget(tgt);
+  });
+})();
+</script>
+<script>
+/* PWA: Service Worker registrieren (relativer Pfad -> funktioniert unter /KONAApp/) */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("./sw.js").catch(function (e) {
+      console.warn("SW-Registrierung fehlgeschlagen:", e);
+    });
+  });
+}
+</script>
+</body>
+</html>
